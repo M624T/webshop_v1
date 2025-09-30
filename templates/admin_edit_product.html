@@ -115,17 +115,36 @@ button:hover { background:#218838; }
     <input type="text" name="name" id="name" value="{{ product['name'] }}" required>
 
     <label for="price">Narx (so'm):</label>
-    <input type="number" name="price" id="price" value="{{ product['price'] }}" step="any" required>
+    <input type="number" name="price" id="price" value="{{ product['price'] }}" step="any" min="0" required>
 
     <label for="description">Tavsif:</label>
     <textarea name="description" id="description" rows="5" required>{{ product['description'] }}</textarea>
 
     <label for="stock">Zaxira:</label>
-    <input type="number" name="stock" id="stock" value="{{ product['stock'] }}" required>
+    <input type="number" name="stock" id="stock" value="{{ product['stock'] }}" min="0" required>
 
     <!-- Yangi rasm qo‘shish -->
     <label for="new_images">Yangi rasmlar (ixtiyoriy):</label>
     <input type="file" id="new_images" name="new_images" accept="image/*" multiple>
+    <!-- Yangi videolar qo‘shish -->
+    <label for="new_videos">Yangi videolar (3:4, ixtiyoriy):</label>
+    <input type="file" id="new_videos" name="new_videos" accept="video/mp4,video/webm,video/quicktime,video/x-matroska" multiple>
+
+    <!-- Mavjud videolar (tartib bilan) -->
+    <p><strong>Mavjud videolar (tartibni o‘zgartirish uchun sudrab tashlang):</strong></p>
+    <div class="image-preview" id="video_preview">
+        {% if product['videos'] %}
+            {% for vid in product['videos'].split(',') if vid %}
+            <div class="image-box" data-videoname="{{ vid }}" style="aspect-ratio:3/4;">
+                <video src="{{ url_for('static', filename='images/' + vid.strip()) }}" style="width:100%;height:100%;object-fit:cover;" controls muted></video>
+                <button type="button" class="remove-btn">&times;</button>
+            </div>
+            {% endfor %}
+        {% endif %}
+    </div>
+
+    <!-- Videolar tartibini yuborish -->
+    <input type="hidden" name="video_order" id="video_order">
 
     <!-- Mavjud rasmlar (tartib bilan) -->
     <p><strong>Mavjud rasmlar (tartibni o‘zgartirish uchun sudrab tashlang):</strong></p>
@@ -173,6 +192,32 @@ new Sortable(preview,{
 
 // dastlabki tartib
 updateOrder();
+
+// ===== Videolar uchun tartib va o'chirish =====
+const videoPreview = document.getElementById('video_preview');
+const videoOrder = document.getElementById('video_order');
+
+function updateVideoOrder(){
+    const names = [];
+    videoPreview.querySelectorAll('.image-box').forEach(div=>{
+        names.push(div.dataset.videoname);
+    });
+    videoOrder.value = names.join(',');
+}
+
+videoPreview.querySelectorAll('.remove-btn').forEach(btn=>{
+    btn.addEventListener('click',()=>{
+        btn.parentElement.remove();
+        updateVideoOrder();
+    });
+});
+
+new Sortable(videoPreview,{
+    animation:150,
+    onEnd:updateVideoOrder
+});
+
+updateVideoOrder();
 </script>
 </body>
 </html>

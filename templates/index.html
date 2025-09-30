@@ -75,36 +75,13 @@
 
     <!-- MAIN -->
     <main class="container">
-        <section id="products" class="products-section">
-            <h2><i class="fas fa-star"></i> Tavsiya etilgan mahsulotlar</h2>
+        
 
-            <!-- 🔑 Mahsulotlar Grid -->
-            <div class="products-grid">
-                {% for product in recommended %}
-                <a href="{{ url_for('product', product_id=product.id) }}" class="product-card-link">
-                    <div class="product-card">
-                        <!-- Rasm qismi -->
-                        <div class="image-wrapper">
-                            <img src="{{ url_for('static', filename='images/' + product.image.split(',')[0].strip()) if product.image else url_for('static', filename='images/default-product.jpg') }}"
-                                 alt="{{ product.name }}" class="product-img">
-                        </div>
-
-                        <!-- Info qismi -->
-                        <div class="product-info">
-                            <h3 class="product-title">{{ product.name }}</h3>
-                            <p class="price">{{ "{:,.0f}".format(product.price) }} so'm</p>
-                            <div class="product-actions">
-                                <button class="btn"
-                                    data-url="{{ url_for('add_to_cart', product_id=product.id) }}"
-                                    onclick="event.preventDefault(); window.location.href=this.dataset.url;">
-                                    <i class="fas fa-cart-plus"></i> Savatga
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                </a>
-                {% endfor %}
-            </div>
+        <!-- Cheksiz yuklanadigan katalog -->
+        <section id="catalog" class="products-section" style="margin-top:24px;">
+            <h2><i class="fas fa-grid"></i> Barcha mahsulotlar</h2>
+            <div id="infinite-grid" class="products-grid"></div>
+            <div id="infinite-sentinel" style="height: 1px;"></div>
         </section>
     </main>
 
@@ -123,6 +100,70 @@
             preloader.style.opacity = "0";
             setTimeout(() => preloader.style.display = "none", 500);
         });
+
+        // Cheksiz yuklash
+        const DEFAULT_IMG_URL = "{{ url_for('static', filename='images/default-product.jpg') }}";
+        const gridEl = document.getElementById('infinite-grid');
+        const sentinel = document.getElementById('infinite-sentinel');
+        let offset = 0;
+        const limit = 24;
+        let loading = false;
+        let hasMore = true;
+
+        function priceFmt(n) {
+            try { return new Intl.NumberFormat('uz-UZ').format(n); } catch (_) { return n; }
+        }
+
+        function productCard(p) {
+            const firstImg = (p.images && p.images.length > 0) ? p.images[0] : DEFAULT_IMG_URL;
+            return `
+                <a href="/product/${p.id}" class="product-card-link">
+                  <div class="product-card">
+                    <div class="image-wrapper">
+                      <img src="${firstImg}" alt="${p.name}" class="product-img" loading="lazy">
+                    </div>
+                    <div class="product-info">
+                      <h3 class="product-title">${p.name}</h3>
+                      <p class="price">${priceFmt(p.price)} so'm</p>
+                      <div class="product-actions">
+                        <button class="btn" onclick="event.preventDefault(); window.location.href='/add-to-cart/${p.id}'">
+                          <i class="fas fa-cart-plus"></i> Savatga
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </a>`;
+        }
+
+        async function loadMore() {
+            if (loading || !hasMore) return;
+            loading = true;
+            try {
+                const res = await fetch(`/api/products?offset=${offset}&limit=${limit}`);
+                const data = await res.json();
+                (data.items || []).forEach(p => {
+                    const div = document.createElement('div');
+                    div.innerHTML = productCard(p);
+                    // a.product-card-link ni gridga qo'shamiz
+                    gridEl.appendChild(div.firstElementChild);
+                });
+                offset += (data.items || []).length;
+                hasMore = !!data.has_more;
+                if (!hasMore) observer.disconnect();
+            } catch (e) {
+                console.error('Yuklash xatosi', e);
+            } finally {
+                loading = false;
+            }
+        }
+
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => { if (entry.isIntersecting) loadMore(); });
+        }, { rootMargin: '400px 0px' });
+
+        if (sentinel) observer.observe(sentinel);
+        // Dastlabki yuklash
+        loadMore();
     </script>
 </body>
 </html>

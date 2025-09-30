@@ -154,6 +154,8 @@
             font-weight: bold;
             margin-bottom: 10px;
         }
+
+        
     </style>
 </head>
 
@@ -192,7 +194,7 @@
                         {{ p.name }}
                     </a>
                 </h3>
-                <p class="product-price">{{ "{:,.0f}".format(p.price) }} so'm</p>
+                <p class="product-price">{{ "{:,.0f}".format(p.price|int) }} so'm</p>
 
                 <div class="quantity-control">
                     <button class="qty-btn minus" data-pid="{{ p.id }}">
@@ -206,7 +208,7 @@
             </div>
 
             <div class="product-actions">
-                <p class="item-total">{{ "{:,.0f}".format(p.price * p.quantity) }} so'm</p>
+                <p class="item-total">{{ "{:,.0f}".format((p.price|int) * p.quantity) }} so'm</p>
                 <button class="remove-btn" data-pid="{{ p.id }}">
                     <i class="fas fa-trash"></i>
                 </button>
@@ -223,7 +225,7 @@
             <span class="total-price">
                 {% set total = namespace(value=0) %}
                 {% for p in products %}
-                {% set total.value = total.value + (p.price * p.quantity) %}
+                {% set total.value = total.value + ((p.price|int) * p.quantity) %}
                 {% endfor %}
                 {{ "{:,.0f}".format(total.value) }} so'm
             </span>

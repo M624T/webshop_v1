@@ -17,9 +17,13 @@ app.secret_key = 'secretkey123'
 UPLOAD_FOLDER = 'static/images'
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+ALLOWED_VIDEO_EXTENSIONS = {'mp4', 'mov', 'webm', 'mkv'}
 
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+def allowed_video(filename):
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_VIDEO_EXTENSIONS
 
 def get_all_products_from_db():
     conn = sqlite3.connect("database/shop.db")  # ← Fayl nomini to‘g‘ri yozganingga ishonch hosil qil
@@ -34,6 +38,20 @@ def get_db_connection():
     conn = sqlite3.connect('database/shop.db')
     conn.row_factory = sqlite3.Row
     return conn
+
+def ensure_products_videos_column():
+    """Agar 'products' jadvalida 'videos' ustuni bo'lmasa, qo'shib qo'yadi."""
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute("PRAGMA table_info(products)")
+        cols = [r[1] for r in cur.fetchall()]
+        if 'videos' not in cols:
+            cur.execute("ALTER TABLE products ADD COLUMN videos TEXT DEFAULT ''")
+            conn.commit()
+        conn.close()
+    except Exception as e:
+        print(f"Schema migration (videos) failed: {e}")
 
 def normalize_cart(cart):
     """Convert cart to dictionary format if it's a list"""
@@ -69,6 +87,35 @@ def index():
     recommended = random.sample(products, min(6, len(products)))
     return render_template('index.html', recommended=recommended)
 
+@app.route('/products')
+def products_list():
+    try:
+        page = int(request.args.get('page', 1))
+        per_page = int(request.args.get('per_page', 24))
+        page = max(1, page)
+        per_page = max(1, min(per_page, 60))
+    except ValueError:
+        page, per_page = 1, 24
+
+    offset = (page - 1) * per_page
+    conn = get_db_connection()
+    cur = conn.cursor()
+    cur.execute('SELECT COUNT(*) FROM products')
+    total_products = cur.fetchone()[0]
+    cur.execute('SELECT * FROM products ORDER BY id DESC LIMIT ? OFFSET ?', (per_page, offset))
+    rows = cur.fetchall()
+    conn.close()
+
+    total_pages = (total_products + per_page - 1) // per_page if per_page else 1
+    return render_template(
+        'products.html',
+        products=rows,
+        page=page,
+        per_page=per_page,
+        total_pages=total_pages,
+        total_products=total_products
+    )
+
 @app.route('/product/<int:product_id>')
 def product(product_id):
     conn = get_db_connection()
@@ -76,7 +123,8 @@ def product(product_id):
     conn.close()
     if product is None:
         return "Mahsulot topilmadi", 404
-    return render_template('product.html', product=product)
+    rendered_description = render_description(product['description']) if product and product['description'] else Markup("")
+    return render_template('product.html', product=product, rendered_description=rendered_description)
 
 @app.route('/cart')
 def cart():
@@ -241,6 +289,7 @@ def first_image_filter(image_string):
 
 @app.route('/admin/add', methods=['GET', 'POST'])
 def admin_add_product():
+    ensure_products_videos_column()
     if request.method == 'POST':
         name = request.form['name']
         price = int(request.form['price'])
@@ -250,10 +299,13 @@ def admin_add_product():
         # Frontenddan keladigan tartiblar
         product_order = request.form.get('image_order', '')
         desc_order    = request.form.get('desc_image_order', '')
+        video_order   = request.form.get('video_order', '')
         ordered_product = product_order.split(',') if product_order else []
         ordered_desc    = desc_order.split(',') if desc_order else []
+        ordered_videos  = video_order.split(',') if video_order else []
 
         original_to_unique = {}
+        original_video_to_unique = {}
 
         # ✅ Umumiy saqlash funksiyasi
         def save_files(file_list):
@@ -274,6 +326,19 @@ def admin_add_product():
         # Tavsif rasmlari
         save_files(request.files.getlist('desc_images'))
 
+        # Videolarni saqlash
+        for vfile in request.files.getlist('videos'):
+            if vfile and allowed_video(vfile.filename):
+                ext = os.path.splitext(vfile.filename)[1]
+                unique_filename = (
+                    datetime.now().strftime('%Y%m%d%H%M%S%f') + '_' +
+                    uuid.uuid4().hex[:6] + ext
+                )
+                secure_name = secure_filename(unique_filename)
+                vpath = os.path.join(app.config['UPLOAD_FOLDER'], secure_name)
+                vfile.save(vpath)
+                original_video_to_unique[vfile.filename] = secure_name
+
         # ✅ Tartib bo‘yicha birlashtirish
         ordered_images = []
         for orig in ordered_product:
@@ -283,18 +348,32 @@ def admin_add_product():
             if orig in original_to_unique:
                 ordered_images.append(original_to_unique[orig])
 
+        # Videolar tartibi
+        ordered_video_files = []
+        for orig in ordered_videos:
+            if orig in original_video_to_unique:
+                ordered_video_files.append(original_video_to_unique[orig])
+
         # ✅ Tavsif ichidagi {rasm.jpg} larni yangi nomlarga almashtirish
         for orig, unique in original_to_unique.items():
             description = description.replace(f'{{{orig}}}', f'{{{unique}}}')
 
         images_str = ','.join(ordered_images)
+        videos_str = ','.join(ordered_video_files)
 
         # ✅ DB ga yozish
         conn = get_db_connection()
-        conn.execute(
-            'INSERT INTO products (name, price, description, stock, image) VALUES (?, ?, ?, ?, ?)',
-            (name, price, description, stock, images_str)
-        )
+        try:
+            conn.execute(
+                'INSERT INTO products (name, price, description, stock, image, videos) VALUES (?, ?, ?, ?, ?, ?)',
+                (name, price, description, stock, images_str, videos_str)
+            )
+        except Exception:
+            # Agar eski schema bo'lsa (videos yo'q) - fallback
+            conn.execute(
+                'INSERT INTO products (name, price, description, stock, image) VALUES (?, ?, ?, ?, ?)',
+                (name, price, description, stock, images_str)
+            )
         conn.commit()
         conn.close()
 
@@ -311,18 +390,64 @@ def admin_edit_product(product_id):
     cur = conn.cursor()
 
     if request.method == "POST":
+        ensure_products_videos_column()
         name = request.form['name']
-        price = request.form['price']
+        price = int(request.form['price']) if request.form.get('price') else 0
         description = request.form['description']
-        stock = request.form['stock']
-        image_order = request.form.get('image_order', '')   # mavjud rasm tartibi
-        # Yangi rasmlarni ham saqlashni qo‘shing
-        # ...
-        cur.execute("""
+        stock = int(request.form['stock']) if request.form.get('stock') else 0
+
+        # Mavjud media tartiblari
+        image_order = request.form.get('image_order', '')
+        ordered_images = [x.strip() for x in image_order.split(',') if x.strip()]
+        video_order = request.form.get('video_order', '')
+        ordered_videos = [x.strip() for x in video_order.split(',') if x.strip()]
+
+        # Yangi rasmlar
+        for file in request.files.getlist('new_images'):
+            if file and allowed_file(file.filename):
+                ext = os.path.splitext(file.filename)[1]
+                unique_filename = (
+                    datetime.now().strftime('%Y%m%d%H%M%S%f') + '_' + uuid.uuid4().hex[:6] + ext
+                )
+                secure_name = secure_filename(unique_filename)
+                filepath = os.path.join(app.config['UPLOAD_FOLDER'], secure_name)
+                file.save(filepath)
+                ordered_images.append(secure_name)
+
+        # Yangi videolar
+        for vfile in request.files.getlist('new_videos'):
+            if vfile and allowed_video(vfile.filename):
+                ext = os.path.splitext(vfile.filename)[1]
+                unique_filename = (
+                    datetime.now().strftime('%Y%m%d%H%M%S%f') + '_' + uuid.uuid4().hex[:6] + ext
+                )
+                secure_name = secure_filename(unique_filename)
+                vpath = os.path.join(app.config['UPLOAD_FOLDER'], secure_name)
+                vfile.save(vpath)
+                ordered_videos.append(secure_name)
+
+        # Diskdan o'chiriladigan fayllar
+        cur.execute("SELECT image, videos FROM products WHERE id=?", (product_id,))
+        row = cur.fetchone()
+        existing_images = [x.strip() for x in (row['image'] or '').split(',') if x.strip()]
+        existing_videos = [x.strip() for x in (row['videos'] or '').split(',') if x.strip()]
+        removed_images = set(existing_images) - set(ordered_images)
+        removed_videos = set(existing_videos) - set(ordered_videos)
+        for fname in list(removed_images) + list(removed_videos):
+            fpath = os.path.join(app.config['UPLOAD_FOLDER'], fname)
+            if os.path.exists(fpath):
+                try:
+                    os.remove(fpath)
+                except Exception as e:
+                    print(f"File delete error: {e}")
+
+        cur.execute(
+            """
             UPDATE products
-            SET name=?, price=?, description=?, stock=?, image=?
-            WHERE id=?""",
-            (name, price, description, stock, image_order, product_id)
+            SET name=?, price=?, description=?, stock=?, image=?, videos=?
+            WHERE id=?
+            """,
+            (name, price, description, stock, ','.join(ordered_images), ','.join(ordered_videos), product_id)
         )
         conn.commit()
         conn.close()
@@ -412,23 +537,39 @@ def chat():
 # ---------- API ENDPOINTS ----------
 @app.route('/api/products')
 def api_products():
-    base_url = request.host_url.rstrip('/')  # masalan: https://few-bats-enter.loca.lt
+    base_url = request.host_url.rstrip('/')
+    try:
+        offset = int(request.args.get('offset', 0))
+        limit = int(request.args.get('limit', 24))
+        offset = max(0, offset)
+        limit = max(1, min(limit, 60))
+    except ValueError:
+        offset, limit = 0, 24
+
     conn = get_db_connection()
-    products = conn.execute("SELECT * FROM products ORDER BY id DESC").fetchall()
+    cur = conn.cursor()
+    cur.execute("SELECT * FROM products ORDER BY id DESC LIMIT ? OFFSET ?", (limit, offset))
+    products = cur.fetchall()
+    # Next page bor-yo'qligini bilish uchun umumiy sonni ham qaytaramiz
+    cur.execute("SELECT COUNT(*) FROM products")
+    total_count = cur.fetchone()[0]
     conn.close()
 
     product_list = []
     for p in products:
         p_dict = dict(p)
-        # Rasm nomlarini vergul bilan bo‘lib listga aylantirish
         filenames = [x.strip() for x in p_dict['image'].split(',') if x.strip()]
-        # To‘liq URL yaratish
         p_dict['images'] = [f"{base_url}/static/images/{name}" for name in filenames]
-        # Eski 'image' maydoni keraksiz bo‘lsa o‘chirib tashlash mumkin
         del p_dict['image']
         product_list.append(p_dict)
 
-    return jsonify(product_list)
+    return jsonify({
+        'items': product_list,
+        'offset': offset,
+        'limit': limit,
+        'total': total_count,
+        'has_more': offset + limit < total_count
+    })
 
 @app.route('/api/add-to-cart/<int:product_id>', methods=['POST'])
 def api_add_to_cart(product_id):

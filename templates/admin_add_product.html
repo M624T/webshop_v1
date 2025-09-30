@@ -126,6 +126,22 @@
         margin: 0 auto;
     }
 
+    /* Jadval ustida boshqaruv paneli */
+    .table-toolbar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 10px;
+        flex-wrap: wrap;
+        margin: 10px 0;
+    }
+    .table-toolbar input[type="search"] {
+        padding: 8px 10px;
+        border: 1px solid #ccc;
+        border-radius: 6px;
+        min-width: 220px;
+    }
+
     table {
         width: 100%;
         border-collapse: collapse;
@@ -143,6 +159,7 @@
         text-align: left;
         border: 1px solid #ccc;
         font-size: 0.9rem;
+        vertical-align: middle;
     }
 
     th {
@@ -150,6 +167,9 @@
         color: white;
         white-space: nowrap;
         text-align: center;
+        position: sticky;
+        top: 0;
+        z-index: 1;
     }
 
     tbody tr:nth-child(even) {
@@ -163,35 +183,40 @@
         border: 1px solid #bbb;
     }
 
+    /* Ustunlarga qulaylik klasslari */
+    .col-id { white-space: nowrap; width: 60px; text-align: center; }
+    .col-name { max-width: 220px; }
+    .col-name .ellipsis { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+    .col-price { white-space: nowrap; width: 120px; text-align: right; }
+    .col-stock { white-space: nowrap; width: 90px; text-align: right; }
+    .col-actions { white-space: nowrap; text-align: center; display:flex; justify-content:center; align-items:center; gap:8px; flex-wrap:wrap; min-width: 180px; }
+
+    /* Kichik ekranlarda tavsif ustunini yashiramiz */
+    @media (max-width: 700px) {
+        .col-desc { display: none; }
+        table { min-width: 0; }
+    }
+
     /* 🔹 Tugmalar */
-    .delete-btn,
-    .edit-btn {
+    /* Bir xil dizaynli amal tugmalari (link yoki button farqsiz) */
+    .action-btn {
         display: inline-block;
-        padding: 6px 12px;
-        font-size: 0.85rem;
+        padding: 8px 14px;
+        font-size: 0.95rem;
         color: #fff;
-        border: none;
-        border-radius: 4px;
+        border-radius: 6px;
         text-decoration: none;
         cursor: pointer;
-        margin: 2px;
-        transition: background-color 0.2s ease;
+        margin: 4px 3px;
+        transition: background-color 0.2s ease, box-shadow 0.2s ease;
         white-space: nowrap;
+        box-shadow: 0 1px 2px rgba(0,0,0,0.08);
     }
-
-    .delete-btn {
-        background: #dc3545;
-    }
-    .delete-btn:hover {
-        background: #b02a37;
-    }
-
-    .edit-btn {
-        background: #28a745;
-    }
-    .edit-btn:hover {
-        background: #218838;
-    }
+    .action-btn:focus { outline: none; box-shadow: 0 0 0 3px rgba(0,0,0,0.08); }
+    .action-edit { background: #28a745; }
+    .action-edit:hover { background: #218838; }
+    .action-delete { background: #dc3545; }
+    .action-delete:hover { background: #b02a37; }
 
     /* 🔹 Kichik ekran optimizatsiyasi */
     @media (max-width: 480px) {
@@ -238,47 +263,51 @@
     <div class="image-preview" id="preview"></div>
     <input type="hidden" name="image_order" id="image_order">
 
+    <label for="videos">Videolar (3:4):</label>
+    <input type="file" id="videos" name="videos" accept="video/mp4,video/webm,video/quicktime,video/x-matroska" multiple>
+    <div class="image-preview" id="video_preview"></div>
+    <input type="hidden" name="video_order" id="video_order">
+
     <button type="submit">Qo'shish</button>
 </form>
 
 <h1>Mavjud mahsulotlar</h1>
 <div class="table-container">
+    <div class="table-toolbar">
+        <div style="font-weight:600; color:#333;">Jadval</div>
+        <input type="search" id="tableSearch" placeholder="ID yoki nom bo‘yicha qidirish...">
+    </div>
     <table>
         <thead>
             <tr>
-                <th>ID</th>
+                <th class="col-id">ID</th>
                 <th>Rasm</th>
-                <th>Nomi</th>
-                <th>Narxi</th>
-                <th>Tavsifi</th>
-                <th>Qoldiq</th>
-                <th>Amal</th>
+                <th class="col-name">Nomi</th>
+                <th class="col-price">Narxi</th>
+                <th class="col-desc">Tavsifi</th>
+                <th class="col-stock">Qoldiq</th>
+                <th class="col-actions">Amal</th>
             </tr>
         </thead>
         <tbody>
             {% for product in products %}
             <tr>
-                <td>{{ product['id'] }}</td>
+                <td class="col-id">{{ product['id'] }}</td>
                 <td>
-                    <img src="{{ url_for('static', filename='images/' + product['image'].split(',')[0]) }}" width="80">
+                    {% set first_img = product['image'].split(',')[0].strip() if product['image'] else '' %}
+                    <img src="{{ url_for('static', filename='images/' + first_img) if first_img else url_for('static', filename='images/default-product.jpg') }}" width="80" alt="rasm">
                 </td>
-                <td>{{ product['name'] }}</td>
-                <td>{{ product['price'] }} so'm</td>
-                <td>
+                <td class="col-name"><div class="ellipsis">{{ product['name'] }}</div></td>
+                <td class="col-price">{{ "{:,.0f}".format(product['price']|int) }} so'm</td>
+                <td class="col-desc">
                     {{ product['description'][:50] }}
                     {% if product['description']|length > 50 %}...{% endif %}
                 </td>
-                <td>{{ product['stock'] }}</td>
-                <td>
-                    <form action="{{ url_for('admin_delete_product', product_id=product['id']) }}"
-                          method="POST" style="display:inline;">
-                        <button type="submit" class="delete-btn"
-                                onclick="return confirm('Haqiqatan o‘chirmoqchimisiz?')">🗑 O‘chirish</button>
-                    </form>
-
-                    <form action="{{ url_for('admin_edit_product', product_id=product['id']) }}"
-                          method="GET" style="display:inline;">
-                        <button type="submit" class="edit-btn">✏️ Tahrirlash</button>
+                <td class="col-stock">{{ product['stock'] }}</td>
+                <td class="col-actions">
+                    <a href="{{ url_for('admin_edit_product', product_id=product['id']) }}" class="action-btn action-edit" title="Tahrirlash">✏️ Tahrirlash</a>
+                    <form action="{{ url_for('admin_delete_product', product_id=product['id']) }}" method="POST" style="display:inline;">
+                        <a href="#" class="action-btn action-delete" title="O‘chirish" onclick="if(confirm('Haqiqatan o‘chirmoqchimisiz?')) { this.closest('form').submit(); } return false;">🗑 O‘chirish</a>
                     </form>
                 </td>
             </tr>
@@ -338,6 +367,122 @@
             });
             files = newFilesOrder;
             updateOrderInput();
+        }
+    });
+
+    // ====== Tavsif rasmlari (desc_images) uchun ======
+    const descInput = document.getElementById('desc_images');
+    const descPreview = document.getElementById('desc_preview');
+    const descOrderInput = document.getElementById('desc_image_order');
+    let descFiles = [];
+
+    descInput.addEventListener('change', function () {
+        descFiles = Array.from(this.files);
+        renderDescImages();
+    });
+
+    function renderDescImages() {
+        descPreview.innerHTML = '';
+        descFiles.forEach((file, index) => {
+            const reader = new FileReader();
+            reader.onload = e => {
+                const div = document.createElement('div');
+                div.className = 'image-box';
+                div.dataset.index = index;
+                div.dataset.filename = file.name;
+                div.innerHTML = `
+                    <img src="${e.target.result}" alt="Tavsif rasm ${index + 1}">
+                    <button type="button" class="remove-btn">&times;</button>
+                `;
+                descPreview.appendChild(div);
+                div.querySelector('.remove-btn').addEventListener('click', () => {
+                    descFiles = descFiles.filter(f => f.name !== file.name);
+                    renderDescImages();
+                });
+            };
+            reader.readAsDataURL(file);
+        });
+        updateDescOrderInput();
+    }
+
+    function updateDescOrderInput() {
+        descOrderInput.value = descFiles.map(f => f.name).join(',');
+    }
+
+    new Sortable(descPreview, {
+        animation: 150,
+        onEnd: function () {
+            const newFilesOrder = [];
+            descPreview.querySelectorAll('.image-box').forEach(div => {
+                const filename = div.dataset.filename;
+                const file = descFiles.find(f => f.name === filename);
+                if (file) newFilesOrder.push(file);
+            });
+            descFiles = newFilesOrder;
+            updateDescOrderInput();
+        }
+    });
+
+    // Jadval qidiruv (ID va nom bo‘yicha)
+    const tableSearch = document.getElementById('tableSearch');
+    const tbody = document.querySelector('.table-container table tbody');
+    tableSearch.addEventListener('input', function() {
+        const q = this.value.toLowerCase().trim();
+        Array.from(tbody.rows).forEach(tr => {
+            const idText = tr.cells[0]?.innerText.toLowerCase() || '';
+            const nameText = tr.cells[2]?.innerText.toLowerCase() || '';
+            tr.style.display = (idText.includes(q) || nameText.includes(q)) ? '' : 'none';
+        });
+    });
+
+    // ====== Videolar preview / order (3:4 konteyner) ======
+    const videoInput = document.getElementById('videos');
+    const videoPreview = document.getElementById('video_preview');
+    const videoOrderInput = document.getElementById('video_order');
+    let videoFiles = [];
+
+    videoInput.addEventListener('change', function () {
+        videoFiles = Array.from(this.files);
+        renderVideos();
+    });
+
+    function renderVideos() {
+        videoPreview.innerHTML = '';
+        videoFiles.forEach((file, index) => {
+            const url = URL.createObjectURL(file);
+            const div = document.createElement('div');
+            div.className = 'image-box';
+            div.style.aspectRatio = '3 / 4';
+            div.dataset.index = index;
+            div.dataset.filename = file.name;
+            div.innerHTML = `
+                <video src="${url}" style="width:100%;height:100%;object-fit:cover;" controls muted></video>
+                <button type="button" class="remove-btn">&times;</button>
+            `;
+            videoPreview.appendChild(div);
+            div.querySelector('.remove-btn').addEventListener('click', () => {
+                videoFiles = videoFiles.filter(f => f.name !== file.name);
+                renderVideos();
+            });
+        });
+        updateVideoOrderInput();
+    }
+
+    function updateVideoOrderInput() {
+        videoOrderInput.value = videoFiles.map(f => f.name).join(',');
+    }
+
+    new Sortable(videoPreview, {
+        animation: 150,
+        onEnd: function () {
+            const newOrder = [];
+            videoPreview.querySelectorAll('.image-box').forEach(div => {
+                const filename = div.dataset.filename;
+                const file = videoFiles.find(f => f.name === filename);
+                if (file) newOrder.push(file);
+            });
+            videoFiles = newOrder;
+            updateVideoOrderInput();
         }
     });
 </script>
