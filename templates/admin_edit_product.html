@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mahsulotni tahrirlash</title>
+<link rel="icon" href="{{ url_for('static', filename='favicon.ico') }}" type="image/x-icon">
+
+<!-- SortableJS (rasm tartibini o‘zgartirish uchun) -->
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
+
+<style>
+body {
+    font-family: sans-serif;
+    background: #f9f9f9;
+    padding: 10px;
+}
+h2 {
+    text-align:center;
+    margin:10px 0 20px 0;
+    color:#333;
+}
+form {
+    background: #fff;
+    padding: 20px;
+    border-radius: 8px;
+    max-width: 600px;
+    margin: auto;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+label {
+    display:block;
+    margin-top:12px;
+    font-weight:bold;
+}
+input, textarea {
+    width: 100%;
+    padding: 10px;
+    margin-top: 4px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    font-size:16px;
+    box-sizing:border-box;
+}
+button {
+    padding: 14px;
+    background: #28a745;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    font-size: 18px;
+    cursor: pointer;
+    width: 100%;
+}
+button:hover { background:#218838; }
+
+/* Rasmlar preview */
+.image-preview {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-bottom: 15px;
+    justify-content: center;
+}
+.image-box {
+    position: relative;
+    width: 120px;
+    height: 120px;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    overflow: hidden;
+    background: #fff;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    cursor:grab;
+}
+.image-box img {
+    width:100%;
+    height:100%;
+    object-fit:cover;
+    user-select:none;
+    pointer-events:none;
+}
+.remove-btn {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    background: rgba(255, 0, 0, 0.9);
+    color: white;
+    border: none;
+    border-radius: 50%;
+    width: 24px;
+    height: 24px;
+    font-size: 16px;
+    line-height: 20px;
+    text-align: center;
+    cursor: pointer;
+    padding: 0;
+    user-select:none;
+}
+@media (max-width: 480px){
+    form {padding:15px;}
+    .image-box {width:90px;height:90px;}
+    button {font-size:16px;}
+}
+</style>
+</head>
+<body>
+<h2>Mahsulotni tahrirlash</h2>
+
+<form method="POST" enctype="multipart/form-data">
+    <label for="name">Nom:</label>
+    <input type="text" name="name" id="name" value="{{ product['name'] }}" required>
+
+    <label for="price">Narx (so'm):</label>
+    <input type="number" name="price" id="price" value="{{ product['price'] }}" step="any" required>
+
+    <label for="description">Tavsif:</label>
+    <textarea name="description" id="description" rows="5" required>{{ product['description'] }}</textarea>
+
+    <label for="stock">Zaxira:</label>
+    <input type="number" name="stock" id="stock" value="{{ product['stock'] }}" required>
+
+    <!-- Yangi rasm qo‘shish -->
+    <label for="new_images">Yangi rasmlar (ixtiyoriy):</label>
+    <input type="file" id="new_images" name="new_images" accept="image/*" multiple>
+
+    <!-- Mavjud rasmlar (tartib bilan) -->
+    <p><strong>Mavjud rasmlar (tartibni o‘zgartirish uchun sudrab tashlang):</strong></p>
+    <div class="image-preview" id="preview">
+        {% for img in product['image'].split(',') if product['image'] %}
+        <div class="image-box" data-filename="{{ img }}">
+            <img src="{{ url_for('static', filename='images/' + img.strip()) }}" alt="rasm">
+            <button type="button" class="remove-btn">&times;</button>
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- Tartibni backendga yuborish uchun -->
+    <input type="hidden" name="image_order" id="image_order">
+
+    <button type="submit">Saqlash</button>
+</form>
+
+<script>
+const preview = document.getElementById('preview');
+const orderInput = document.getElementById('image_order');
+
+// rasm o‘chirish
+preview.querySelectorAll('.remove-btn').forEach(btn=>{
+    btn.addEventListener('click',()=>{
+        btn.parentElement.remove();
+        updateOrder();
+    });
+});
+
+// tartibni yangilash
+function updateOrder(){
+    const names = [];
+    preview.querySelectorAll('.image-box').forEach(div=>{
+        names.push(div.dataset.filename);
+    });
+    orderInput.value = names.join(',');
+}
+
+// drag&drop tartiblash
+new Sortable(preview,{
+    animation:150,
+    onEnd:updateOrder
+});
+
+// dastlabki tartib
+updateOrder();
+</script>
+</body>
+</html>

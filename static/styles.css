@@ -1,0 +1,344 @@
+/* Main Styles */
+:root {
+  --primary: #4CAF50;
+  --secondary: #FF9800;
+  --light: #f5f5f5;
+  --dark: #333;
+  --border: #e0e0e0;
+}
+
+body {
+  font-family: 'Segoe UI', Tahoma, sans-serif;
+  line-height: 1.6;
+  color: var(--dark);
+  background: #f9f9f9;
+  margin: 0;
+  padding: 0;
+}
+
+.container {
+  max-width: auto;
+  margin: 0 auto;
+  padding: 0 15px;
+}
+
+/* Header */
+.header {
+  background: var(--primary);
+  color: white;
+  padding: 0px 0;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.header .container {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+/* === Product Cards === */
+.product-card {
+  min-height: 360px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  align-items: center;
+  background: white;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  transition: transform 0.3s ease;
+  padding: 15px;
+
+  /* yangi qo'shimcha */
+  text-decoration: none; /* link chizig'ini olib tashlash */
+  color: inherit;        /* matn rangi o'zgarmasin */
+}
+
+.product-card:hover {
+  transform: translateY(-5px);
+}
+
+.product-img {
+  height: 200px;
+  object-fit: cover;
+  border-radius: 8px;
+  display: block;
+  margin: 0 auto;
+}
+
+.product-title {
+  font-size: 16px;
+  font-weight: 600;
+  margin: 8px 0;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  height: 48px;
+}
+
+.product-info {
+  display: flex;
+  flex-direction: column;
+  margin-left: 5px;
+  flex-grow: 1;
+  justify-content: space-between;
+  width: 100%;
+}
+
+.product-actions {
+  margin-top: auto;
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+/* Karta butunlay link bo‘lsa ham ichki ko‘rinish buzilmasligi uchun */
+
+
+.product-card-link .product-card:hover {
+  transform: translateY(-5px);
+}
+
+
+.price {
+  font-weight: bold;
+  margin: 10px 0;
+  color: var(--secondary);
+}
+
+.image-wrapper {
+  width: 100%;
+  height: 200px;
+  overflow: hidden;
+  position: relative;
+  border-radius: 8px 8px 0 0;
+}
+
+.footer {
+  background: var(--dark);
+  color: white;
+  text-align: center;
+  padding: 15px 0;
+  margin-top: 40px;
+}
+
+/* 🔵 Yangi dizaynga mos yashil tugma */
+.btn {
+  display: inline-block;
+  padding: 12px 28px;
+  background: linear-gradient(135deg, #4CAF50, #2e7d32); /* asosiy rangdan to‘qroq gradient */
+  color: #fff;
+  border: none;
+  border-radius: 25px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  text-align: center;
+  box-shadow : 0px  0px  5px  1px  #000000 ;
+}
+
+.btnred {
+  display: inline-block;
+  margin-right: 10px;
+  padding: 10px 10px;
+  background: #2e7d32;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  text-decoration: none;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.btn:hover {
+  background: linear-gradient(135deg, #43a047, #1b5e20); /* hoverda yanada to‘q rang */
+  transform: translateY(-2px);
+  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.2);
+}
+
+/* Forms */
+.form-group {
+  margin-bottom: 20px;
+}
+
+.form-control {
+  width: 50%;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+}
+
+/* Cart Items */
+.cart-item {
+  display: flex;
+  gap: 20px;
+  padding: 15px;
+  background: white;
+  border-radius: 8px;
+  margin-bottom: 15px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.cart-item-img {
+  width: 120px;
+  height: 120px;
+  object-fit: cover;
+  border-radius: 8px;
+}
+
+.products-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 20px;
+  margin-top: 20px;
+
+  /* 🆕 qo‘shimcha */
+  align-items: stretch;   /* har bir grid hujayrasi bir xil balandlikka tortiladi */
+}
+
+.product-card-link {
+  text-decoration: none;
+  color: inherit;
+  display: block;
+
+  /* 🆕 qo‘shimcha */
+  height: 100%;           /* link butun grid yacheykasini egallasin */
+}
+
+.product-card-link .product-card {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  align-items: center;
+  background: white;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  transition: transform 0.3s ease;
+  padding: 15px;
+
+  /* 🆕 qo‘shimcha */
+  height: 90%;           /* kartaning o‘zi ham butun balandlikni egallasin */
+}
+
+@media (max-width: 768px) {
+  .products-grid {
+    grid-template-columns: repeat(2, 1fr); /* har qatorga 2ta */
+    gap: 15px;
+  }
+  
+  .product-card:hover {
+    transform: none; /* kichik ekranlarda hover effektini olib tashlash */
+  }
+  
+  .product-card {
+    min-height: auto;
+    padding: 10px;
+  }
+
+  .product-img,
+  .image-wrapper {
+    height: 150px;
+  }
+
+  .btn {
+      padding: 10px 20px;
+      font-size: 14px;
+      border-radius: 20px;
+    }
+
+  .btnred {
+    padding: 8px 12px;
+    font-size: 14px;
+  }
+
+  .product-title {
+    font-size: 14px;
+    height: auto;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+  }
+
+  .product-actions {
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .cart-item {
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+  }
+
+  .cart-item-img {
+    width: 100px;
+    height: 100px;
+  }
+}
+
+@media (max-width: 480px) {
+  .products-grid {
+    grid-template-columns: repeat(2, 1fr); /* Juda kichik ekranlarda ham 2ta kartani saqlaydi */
+  }
+
+  .product-card:hover {
+    transform: none; /* kichik ekranlarda hover effektini olib tashlash */
+  }
+
+  .product-img,
+  .image-wrapper {
+    height: 120px;
+  }
+
+  .btn,
+  .btnred {
+    text-align: center;
+  }
+
+  .product-title {
+    font-size: 13px;
+  }
+
+  .product-card {
+    padding: 8px;
+  }
+
+  .bottom-nav {
+    position: fixed;       /* ekranga yopishtirish */
+    bottom: 0;             /* pastga biriktirish */
+    left: 0;
+    width: 100%;           /* butun ekran kengligi */
+    background: var(--primary);
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+    padding: 10px 0;
+    box-shadow: 0 -2px 5px rgba(0,0,0,0.2);
+    z-index: 999;          /* hamma narsadan yuqorida */
+  }
+
+  /* tugmalarni moslashtirish */
+  .bottom-nav .btnred {
+    background: none;       /* pastki panel foniga mos bo‘lsin */
+    color: #fff;
+    font-size: 18px;
+    padding: 8px 16px;
+    border-radius: 0;
+    box-shadow: 0px 0px 10px 2px #000000;
+  }
+
+  .bottom-nav .cart-count {
+    color: #fff;
+  }
+
+  /* Pastki bar uchun asosiy kontentni pastga surish */
+  body {
+    padding-bottom: 60px;   /* pastki bar balandligiga teng bo‘sh joy */
+  }
+}

@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">  <!-- ✅ mobil mosligi -->
+    <title>Mahsulot qo'shish</title>
+    <link rel="icon" href="{{ url_for('static', filename='favicon.ico') }}" type="image/x-icon">
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+<style>
+    body {
+        font-family: Arial, sans-serif;
+        padding: 10px;
+        background-color: #f9f9f9;
+        margin: 0;
+    }
+
+    h1 {
+        color: #333;
+        margin: 15px 0;
+        text-align: center;
+        font-size: clamp(1.3rem, 2vw, 1.8rem);
+    }
+
+    form {
+        background: #fff;
+        padding: 16px;
+        border-radius: 8px;
+        max-width: 800px;
+        margin: 0 auto 30px auto;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    }
+
+    label {
+        font-weight: bold;
+        display: block;
+        margin-bottom: 6px;
+        color: #555;
+        font-size: 0.95rem;
+    }
+
+    input[type="text"],
+    input[type="number"],
+    textarea,
+    input[type="file"] {
+        width: 100%;
+        padding: 10px 12px;
+        margin-bottom: 15px;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        font-size: 1rem;
+        box-sizing: border-box;
+    }
+
+    input:focus, textarea:focus {
+        border-color: #007bff;
+        outline: none;
+    }
+
+    button[type="submit"] {
+        background-color: #007bff;
+        color: white;
+        border: none;
+        padding: 14px 20px;
+        font-size: 1rem;
+        border-radius: 4px;
+        cursor: pointer;
+        width: 100%;
+        transition: background-color 0.3s ease;
+    }
+
+    button[type="submit"]:hover {
+        background-color: #0056b3;
+    }
+
+    /* Rasmlar preview */
+    .image-preview {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+        margin-bottom: 15px;
+        justify-content: center;
+    }
+
+    .image-box {
+        position: relative;
+        width: 120px;
+        height: 120px;
+        border: 1px solid #ccc;
+        border-radius: 6px;
+        overflow: hidden;
+        background-color: #fff;
+        box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: grab;
+    }
+
+    .image-box img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+    .remove-btn {
+        position: absolute;
+        top: 4px;
+        right: 4px;
+        background: rgba(255, 0, 0, 0.9);
+        color: white;
+        border: none;
+        border-radius: 50%;
+        width: 24px;
+        height: 24px;
+        font-size: 16px;
+        line-height: 20px;
+        text-align: center;
+        cursor: pointer;
+    }
+
+    /* 🔹 Jadval */
+    .table-container {
+        max-width: 100%;
+        overflow-x: auto;    /* ✅ kichik ekranlarda scroll */
+        margin: 0 auto;
+    }
+
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        background: #fff;
+        margin-top: 10px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+        border: 1px solid #ccc;
+        border-radius: 6px;
+        overflow: hidden;
+        min-width: 650px;     /* katta jadval uchun */
+    }
+
+    th, td {
+        padding: 12px 8px;
+        text-align: left;
+        border: 1px solid #ccc;
+        font-size: 0.9rem;
+    }
+
+    th {
+        background-color: #007bff;
+        color: white;
+        white-space: nowrap;
+        text-align: center;
+    }
+
+    tbody tr:nth-child(even) {
+        background-color: #f8f8f8;
+    }
+
+    td img {
+        max-width: 60px;
+        height: auto;
+        border-radius: 4px;
+        border: 1px solid #bbb;
+    }
+
+    /* 🔹 Tugmalar */
+    .delete-btn,
+    .edit-btn {
+        display: inline-block;
+        padding: 6px 12px;
+        font-size: 0.85rem;
+        color: #fff;
+        border: none;
+        border-radius: 4px;
+        text-decoration: none;
+        cursor: pointer;
+        margin: 2px;
+        transition: background-color 0.2s ease;
+        white-space: nowrap;
+    }
+
+    .delete-btn {
+        background: #dc3545;
+    }
+    .delete-btn:hover {
+        background: #b02a37;
+    }
+
+    .edit-btn {
+        background: #28a745;
+    }
+    .edit-btn:hover {
+        background: #218838;
+    }
+
+    /* 🔹 Kichik ekran optimizatsiyasi */
+    @media (max-width: 480px) {
+        .image-box {
+            width: 90px;
+            height: 90px;
+        }
+        th, td {
+            padding: 8px 6px;
+            font-size: 0.85rem;
+        }
+        button[type="submit"] {
+            padding: 12px 16px;
+            font-size: 0.95rem;
+        }
+    }
+</style>
+</head>
+<body>
+
+<h1>Mahsulot qo'shish</h1>
+
+<form action="{{ url_for('admin_add_product') }}" method="POST" enctype="multipart/form-data">
+    <label for="name">Nom:</label>
+    <input type="text" id="name" name="name" required>
+
+    <label for="price">Narx (so'm):</label>
+    <input type="number" id="price" name="price" required min="0" step="any">
+
+    <label for="desc_images">Tavsifnoma rasmlari:</label>
+    <input type="file" id="desc_images" name="desc_images" accept="image/*" multiple>
+    <div class="image-preview" id="desc_preview"></div>
+    <input type="hidden" name="desc_image_order" id="desc_image_order">
+
+    <label for="description">Tavsif:</label>
+    <textarea id="description" name="description" rows="4" required></textarea>
+
+    <label for="stock">Zaxira:</label>
+    <input type="number" id="stock" name="stock" required min="0">
+
+    <label for="images">Rasmlar:</label>
+    <input type="file" id="images" name="images" accept="image/*" multiple required>
+
+    <div class="image-preview" id="preview"></div>
+    <input type="hidden" name="image_order" id="image_order">
+
+    <button type="submit">Qo'shish</button>
+</form>
+
+<h1>Mavjud mahsulotlar</h1>
+<div class="table-container">
+    <table>
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Rasm</th>
+                <th>Nomi</th>
+                <th>Narxi</th>
+                <th>Tavsifi</th>
+                <th>Qoldiq</th>
+                <th>Amal</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for product in products %}
+            <tr>
+                <td>{{ product['id'] }}</td>
+                <td>
+                    <img src="{{ url_for('static', filename='images/' + product['image'].split(',')[0]) }}" width="80">
+                </td>
+                <td>{{ product['name'] }}</td>
+                <td>{{ product['price'] }} so'm</td>
+                <td>
+                    {{ product['description'][:50] }}
+                    {% if product['description']|length > 50 %}...{% endif %}
+                </td>
+                <td>{{ product['stock'] }}</td>
+                <td>
+                    <form action="{{ url_for('admin_delete_product', product_id=product['id']) }}"
+                          method="POST" style="display:inline;">
+                        <button type="submit" class="delete-btn"
+                                onclick="return confirm('Haqiqatan o‘chirmoqchimisiz?')">🗑 O‘chirish</button>
+                    </form>
+
+                    <form action="{{ url_for('admin_edit_product', product_id=product['id']) }}"
+                          method="GET" style="display:inline;">
+                        <button type="submit" class="edit-btn">✏️ Tahrirlash</button>
+                    </form>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
+<script>
+    const input = document.getElementById('images');
+    const preview = document.getElementById('preview');
+    const orderInput = document.getElementById('image_order');
+    let files = [];
+
+    input.addEventListener('change', function () {
+        files = Array.from(this.files);
+        renderImages();
+    });
+
+    function renderImages() {
+        preview.innerHTML = '';
+        files.forEach((file, index) => {
+            const reader = new FileReader();
+            reader.onload = e => {
+                const div = document.createElement('div');
+                div.className = 'image-box';
+                div.dataset.index = index;
+                div.dataset.filename = file.name;
+                div.innerHTML = `
+                    <img src="${e.target.result}" alt="Rasm ${index + 1}">
+                    <button type="button" class="remove-btn">&times;</button>
+                `;
+                preview.appendChild(div);
+                div.querySelector('.remove-btn').addEventListener('click', () => {
+                    files = files.filter(f => f.name !== file.name);
+                    renderImages();
+                });
+            };
+            reader.readAsDataURL(file);
+        });
+        updateOrderInput();
+    }
+
+    function updateOrderInput() {
+        orderInput.value = files.map(f => f.name).join(',');
+    }
+
+    new Sortable(preview, {
+        animation: 150,
+        onEnd: function () {
+            const newFilesOrder = [];
+            preview.querySelectorAll('.image-box').forEach(div => {
+                const filename = div.dataset.filename;
+                const file = files.find(f => f.name === filename);
+                if (file) newFilesOrder.push(file);
+            });
+            files = newFilesOrder;
+            updateOrderInput();
+        }
+    });
+</script>
+</body>
+</html>

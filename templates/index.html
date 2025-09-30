@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Online Do'kon - Bosh sahifa</title>
+
+    <!-- Asosiy CSS -->
+    <link rel="icon" href="{{ url_for('static', filename='favicon.ico') }}" type="image/x-icon">
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+
+    <style>
+        /* === PRELOADER === */
+        #preloader {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: linear-gradient(135deg, #4CAF50, #2e7d32);
+            display: flex; justify-content: center; align-items: center;
+            flex-direction: column;
+            z-index: 9999;
+            transition: opacity 0.5s ease;
+        }
+        .loader {
+            width: 70px; height: 70px;
+            border: 8px solid #fff;
+            border-top: 8px solid #ff9800;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 15px;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Yuklanish vaqtida asosiy kontentni yashirish */
+        body.loading main,
+        body.loading header,
+        body.loading footer {
+            visibility: hidden;
+        }
+    </style>
+</head>
+<body class="loading">
+    <!-- PRELOADER -->
+    <div id="preloader">
+        <div class="loader"></div>
+    </div>
+
+    <!-- HEADER -->
+    <header class="header">
+        <div class="container">
+            <h1><i class="fas fa-store"></i> Online Do'kon</h1>
+
+            <!-- 🔽 Tugmalar (pastki bar sifatida ishlatiladi) -->
+            <nav class="bottom-nav">
+                <a href="{{ url_for('index') }}" class="btn">
+                    <i class="fas fa-home"></i>
+                </a>
+                <a href="{{ url_for('cart') }}" class="btn cart-link">
+                    <i class="fas fa-shopping-cart"></i>
+                    <span class="cart-count">
+                        {% if session.cart %}{{ session.cart|length }}{% endif %}
+                    </span>
+                </a>
+                <a href="{{ url_for('chat_ui') }}" class="btn">
+                    <i class="fas fa-headset"></i>
+                </a>
+            </nav>
+        </div>
+    </header>
+
+
+    <!-- MAIN -->
+    <main class="container">
+        <section id="products" class="products-section">
+            <h2><i class="fas fa-star"></i> Tavsiya etilgan mahsulotlar</h2>
+
+            <!-- 🔑 Mahsulotlar Grid -->
+            <div class="products-grid">
+                {% for product in recommended %}
+                <a href="{{ url_for('product', product_id=product.id) }}" class="product-card-link">
+                    <div class="product-card">
+                        <!-- Rasm qismi -->
+                        <div class="image-wrapper">
+                            <img src="{{ url_for('static', filename='images/' + product.image.split(',')[0].strip()) if product.image else url_for('static', filename='images/default-product.jpg') }}"
+                                 alt="{{ product.name }}" class="product-img">
+                        </div>
+
+                        <!-- Info qismi -->
+                        <div class="product-info">
+                            <h3 class="product-title">{{ product.name }}</h3>
+                            <p class="price">{{ "{:,.0f}".format(product.price) }} so'm</p>
+                            <div class="product-actions">
+                                <button class="btn"
+                                    data-url="{{ url_for('add_to_cart', product_id=product.id) }}"
+                                    onclick="event.preventDefault(); window.location.href=this.dataset.url;">
+                                    <i class="fas fa-cart-plus"></i> Savatga
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </a>
+                {% endfor %}
+            </div>
+        </section>
+    </main>
+
+    <!-- FOOTER -->
+    <footer class="footer">
+        <div class="container">
+            <p>© 2025 Online Do'kon. Barcha huquqlar himoyalangan.</p>
+        </div>
+    </footer>
+
+    <script>
+        // Sahifa to'liq yuklanganda preloaderni yashirish
+        window.addEventListener("load", () => {
+            const preloader = document.getElementById("preloader");
+            document.body.classList.remove("loading");
+            preloader.style.opacity = "0";
+            setTimeout(() => preloader.style.display = "none", 500);
+        });
+    </script>
+</body>
+</html>
