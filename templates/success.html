@@ -1,6 +1,7 @@
 <!-- templates/success.html -->
 <!DOCTYPE html>
 <html lang="uz">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -14,27 +15,31 @@
             padding: 40px 20px;
             background: white;
             border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
             max-width: 600px;
             margin: 40px auto;
         }
+
         .success-icon {
             color: #4CAF50;
             font-size: 60px;
             margin-bottom: 20px;
         }
+
         .order-details {
             margin-top: 30px;
             text-align: left;
             border-top: 1px solid #eee;
             padding-top: 20px;
         }
+
         /* Mahsulotlar ro'yxati */
         .product-list {
             list-style: none;
             padding-left: 0;
             margin-top: 10px;
         }
+
         .product-list li {
             background: #f8f8f8;
             margin: 6px 0;
@@ -46,11 +51,13 @@
             align-items: center;
             gap: 8px;
         }
+
         .product-list li i {
             color: #4CAF50;
         }
     </style>
 </head>
+
 <body>
     <!-- HEADER -->
     <header class="header">
@@ -59,8 +66,8 @@
 
             <!-- 🔽 Tugmalar (pastki bar sifatida ishlatiladi) -->
             <nav class="bottom-nav">
-                <a href="{{ url_for('chat_ui') }}" class="btnred">
-                    <i class="fas fa-headset"></i>
+                <a href="{{ url_for('index') }}" class="btn">
+                    <i class="fas fa-home"></i>
                 </a>
             </nav>
         </div>
@@ -83,14 +90,28 @@
                 <p><strong>Manzil:</strong> {{ order.address }}</p>
                 <p><strong>Jami:</strong> {{ "{:,.0f}".format(order.total_price) }} so'm</p>
 
-                <!-- ✅ Mahsulotlar ro'yxati chiroyli ko'rinishda -->
                 <p><strong>Mahsulotlar:</strong></p>
                 <ul class="product-list">
                     {% for product in products %}
-                        <li><i class="fas fa-box"></i> {{ product }}</li>
+                    <li><i class="fas fa-box"></i> {{ product }}</li>
                     {% endfor %}
                 </ul>
             </div>
+
+            <!-- 📄 Chek yuklab olish tugmasi -->
+            <a href="{{ url_for('download_receipt', order_id=order.id) }}" class="btn" style="margin-top:10px;">
+                <i class="fas fa-file-pdf"></i> Chekni PDF sifatida yuklab olish
+            </a>
+
+            <!-- yoki shrift tanlash imkoniyati -->
+            <!-- <a href="{{ url_for('download_receipt', order_id=order.id) }}?font=NotoSans" class="btn"
+                style="margin-top:10px;">
+                <i class="fas fa-file-pdf"></i> Chek (NotoSans)
+            </a> -->
+
+
+
+
 
             <a href="{{ url_for('index') }}" class="btn" style="margin-top: 30px;">
                 <i class="fas fa-shopping-bag"></i> Yangi buyurtma berish
@@ -104,4 +125,5 @@
         </div>
     </footer>
 </body>
+
 </html>

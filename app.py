@@ -1,15 +1,38 @@
-from flask import Flask, render_template, request, redirect, url_for, session, jsonify
-from markupsafe import Markup            # ✅ Flask 2.3+ da Markup shu yerdan olinadi
-from flask_cors import CORS              # ✅ Flutter web bilan ishlash uchun
-import sqlite3
-import ollama
-import random
-import requests
-from datetime import datetime
-import uuid
+# -------------------------
+# Flask va extensions
+# -------------------------
+from flask import (
+    Flask, render_template, request, redirect,
+    url_for, session, jsonify, send_file, abort
+)
+from flask_cors import CORS
+from markupsafe import Markup
 from werkzeug.utils import secure_filename
+
+# -------------------------
+# Standart kutubxonalar
+# -------------------------
 import os
 import re
+import uuid
+import random
+import sqlite3
+import requests
+from io import BytesIO
+from datetime import datetime
+
+# -------------------------
+# 3rd-party kutubxonalar
+# -------------------------
+import ollama
+import qrcode
+from reportlab.pdfgen import canvas
+from reportlab.lib.units import mm
+from reportlab.lib.utils import ImageReader
+from reportlab.pdfbase import pdfmetrics
+from reportlab.pdfbase.ttfonts import TTFont
+from reportlab.pdfbase.pdfmetrics import stringWidth
+# -------------------------
 
 app = Flask(__name__)
 CORS(app)  # ✅ CORS ni yoqib qo'yamiz (Flutter web so'rovlariga ruxsat)
@@ -18,6 +41,22 @@ UPLOAD_FOLDER = 'static/images'
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 ALLOWED_VIDEO_EXTENSIONS = {'mp4', 'mov', 'webm', 'mkv'}
+
+# Font papkasi va fayllar (static ichida)
+FONT_DIR = os.path.join(app.root_path, 'static', 'fonts')
+FONT_FILES = {
+    'DejaVuSans': os.path.join(FONT_DIR, 'DejaVuSans.ttf'),
+    'NotoSans': os.path.join(FONT_DIR, 'NotoSans-Regular.ttf')
+}
+# Ro'yxatga olish
+REGISTERED_FONTS = {}
+for short, path in FONT_FILES.items():
+    if os.path.exists(path):
+        try:
+            pdfmetrics.registerFont(TTFont(short, path))
+            REGISTERED_FONTS[short] = path
+        except Exception as e:
+            print("Font register error:", short, e)
 
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
@@ -217,6 +256,203 @@ def checkout():
 
     conn.close()
     return render_template("checkout.html", cart_items=products, total=total)
+
+@app.route('/download_receipt/<int:order_id>')
+def download_receipt(order_id):
+    # tanlangan shrift (query param orqali o'zgartirish mumkin)
+    requested_font = request.args.get('font', 'DejaVuSans')
+    font_name = requested_font if requested_font in REGISTERED_FONTS else 'DejaVuSans'
+    font_size = 10  # o'zgartiring, 9-11 oralig'i chek uchun yaxshi
+
+    conn = get_db_connection()
+    order = conn.execute('SELECT * FROM orders WHERE id = ?', (order_id,)).fetchone()
+    if not order:
+        conn.close()
+        return abort(404, "Order not found")
+
+    raw_products = order['products'] or ''
+    # (1) pars qiling: (#{id} name x qty)
+    parsed = re.findall(r'\(#(\d+)\s+(.*?)\s+x\s+(\d+)\)', raw_products)
+    items = []
+    if parsed:
+        for pid, name, qty in parsed:
+            # har bir mahsulot uchun DB dan narx olishga urinib ko'ramiz
+            prow = conn.execute('SELECT price FROM products WHERE id = ?', (int(pid),)).fetchone()
+            price = int(prow['price']) if prow and prow['price'] else None
+            items.append({'id': pid, 'name': name.strip(), 'qty': int(qty), 'price': price})
+    else:
+        # fallback — oddiy bo'linish
+        parts = [p.strip() for p in re.split(r',\s*|\n', raw_products) if p.strip()]
+        for p in parts:
+            items.append({'id': '', 'name': p, 'qty': '', 'price': None})
+
+    conn.close()
+
+    # PDF o'lchamlari — kenglik 80 mm (termal chek), balandlikni hisoblab qo'yamiz
+    page_width = 80 * mm
+    left_margin = 6 * mm
+    right_margin = 6 * mm
+    content_width = page_width - left_margin - right_margin
+
+    # Helper: matnni qatorlarga bo'lish (fontga mos)
+    def wrap_text(text, font, size, max_width):
+        words = text.split()
+        lines = []
+        cur = ""
+        for w in words:
+            test = cur + (" " if cur else "") + w
+            if stringWidth(test, font, size) <= max_width:
+                cur = test
+            else:
+                if cur:
+                    lines.append(cur)
+                cur = w
+        if cur:
+            lines.append(cur)
+        if not lines:
+            return [""]
+        return lines
+
+    # yuqoridagi tekshiruvlar bo'yicha qancha qatordan iborat ekanligini hisoblaymiz
+    line_height = font_size * 1.3
+    lines_count = 0
+
+    # header lines
+    header_lines = [
+        "ONLINE DO'KON / ОNLINE МАГАЗИН",
+        f"Check / Чек: {order['id']}",
+        f"Sana / Дата: {datetime.now().strftime('%Y-%m-%d %H:%M')}"
+    ]
+    lines_count += sum(len(wrap_text(l, font_name, font_size + 1, content_width)) for l in header_lines)
+
+    # mijoz ma'lumotlari
+    customer_lines = [
+        f"Ism / Имя: {order['name']}",
+        f"Tel / Тел: {order['phone']}",
+        f"Manzil / Адрес: {order['address'] or ''}"
+    ]
+    lines_count += sum(len(wrap_text(l, font_name, font_size, content_width)) for l in customer_lines)
+
+    # products lines
+    for it in items:
+        # satrda: "Nomi (id) xqty — narx — jami"
+        # lekin narx bo'lmasa, faqat nom va qty
+        title = it['name']
+        lines = wrap_text(title, font_name, font_size, content_width - (20 * mm))  # ozgina joy vaqtinchalik raqam uchun
+        lines_count += len(lines)
+        # bitta qo'shimcha satr - qty+price ko'rsatish (agar kerak)
+        lines_count += 1
+
+    # total, qr va footer
+    footer_lines = ["", f"JAMI / ИТОГО: {int(order['total_price']):,} so'm", "", "Rahmat! Спасибо за покупку!"]
+    lines_count += sum(len(wrap_text(l, font_name, font_size, content_width)) for l in footer_lines)
+
+    # QR joylashuvi uchun balandlikni hisoblaymiz (qr_size mm)
+    qr_size = 40 * mm
+    # umumiy balandlik
+    top_margin = 6 * mm
+    bottom_margin = 8 * mm
+    content_height = lines_count * line_height
+    height_pts = top_margin + content_height + qr_size + bottom_margin + 20  # kichik kesh
+
+    # minimal balandlikni belgilaymiz
+    min_h = 120 * mm
+    if height_pts < min_h:
+        height_pts = min_h
+
+    # PDF yaratayapmiz
+    buffer = BytesIO()
+    c = canvas.Canvas(buffer, pagesize=(page_width, height_pts))
+
+    # Fon va font
+    c.setFont(font_name, font_size + 2)
+    y = height_pts - top_margin
+
+    # header
+    for hl in header_lines:
+        # markazlashtirilgan
+        c.setFont(font_name, font_size + 1)
+        c.drawCentredString(page_width / 2, y, hl)
+        y -= line_height
+
+    y -= 3  # kichik bo'shliq
+    # mijoz ma'lumotlari
+    c.setFont(font_name, font_size)
+    for cl in customer_lines:
+        wrapped = wrap_text(cl, font_name, font_size, content_width)
+        for w in wrapped:
+            c.drawString(left_margin, y, w)
+            y -= line_height
+
+    y -= 3
+    # Chiziq
+    c.line(left_margin, y, page_width - right_margin, y)
+    y -= line_height
+
+    # Mahsulotlar sarlavhasi
+    c.setFont(font_name, font_size)
+    c.drawString(left_margin, y, "Nomi / Товар")
+    # quantity va narx uchun sarlavha o'ng tomonda
+    c.drawRightString(page_width - right_margin, y, "Soni  Narx  Jami")
+    y -= line_height
+
+    # Tovarlar
+    # qayta ochish uchun DB olish (agar kerak bo'lsa)
+    for it in items:
+        name_lines = wrap_text(it['name'], font_name, font_size, content_width - (30 * mm))
+        for i, nl in enumerate(name_lines):
+            c.drawString(left_margin, y, nl)
+            if i == 0:
+                qty = str(it['qty']) if it.get('qty') != '' else ''
+                price = f"{int(it['price']):,}" if it.get('price') else ''
+                total_line = f"{qty}  {price}" if price else qty
+                c.drawRightString(page_width - right_margin, y, total_line)
+            y -= line_height
+        y -= 2  # kichik oraliq
+
+    y -= line_height/2
+    # chiziq
+    c.line(left_margin, y, page_width - right_margin, y)
+    y -= line_height
+
+    # TOTAL
+    c.setFont(font_name, font_size + 1)
+    total_str = f"JAMI / ИТОГО: {int(order['total_price']):,} so'm"
+    c.drawString(left_margin, y, total_str)
+    y -= line_height * 1.5
+
+    # QR ma'lumotini tayyorlash
+    # QR da qisqacha ma'lumot: order id, name, phone, va qisqacha mahsulotlar
+    qr_text_items = []
+    for it in items:
+        if it.get('id'):
+            qr_text_items.append(f"#{it['id']}:{it['qty']}")
+        else:
+            qr_text_items.append(f"{it['name']} x{it['qty']}")
+    qr_data = f"Order:{order['id']};Name:{order['name']};Phone:{order['phone']};Items:{'|'.join(qr_text_items)}"
+
+    qr_img = qrcode.make(qr_data)
+    qr_buf = BytesIO()
+    qr_img.save(qr_buf, format='PNG')
+    qr_buf.seek(0)
+    qr_reader = ImageReader(qr_buf)
+
+    # QR ni pastga o'ngga chizish (y joyi taxminan)
+    qr_x = page_width - right_margin - qr_size
+    qr_y = bottom_margin + 4 * mm
+    c.drawImage(qr_reader, qr_x, qr_y, width=qr_size, height=qr_size)
+
+    # Footer text (QR yoniga yoki pastga)
+    c.setFont(font_name, font_size - 1)
+    c.drawString(left_margin, bottom_margin + 2 * mm, "Rahmat! Спасибо за покупку!")
+
+    c.showPage()
+    c.save()
+    buffer.seek(0)
+
+    return send_file(buffer, as_attachment=True,
+                     download_name=f"chek_{order_id}.pdf",
+                     mimetype='application/pdf')
 
 @app.route('/add-to-cart/<int:product_id>', methods=['GET', 'POST'])  # Mahsulotni savatga qo'shish uchun POST so'rovini kutayotgan yo'lni belgilaydi.
 def add_to_cart(product_id):  # Mahsulotni savatga qo'shish funksiyasini belgilaydi.

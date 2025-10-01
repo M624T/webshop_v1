@@ -125,7 +125,7 @@
             text-align: center;
             color: white;
             background: #4caf50;
-            box-shadow : 0px  0px  5px  1px  #000000 ;
+            box-shadow: 0px 0px 5px 1px #000000;
             transition: all 0.3s ease;
         }
 
@@ -154,8 +154,6 @@
             font-weight: bold;
             margin-bottom: 10px;
         }
-
-        
     </style>
 </head>
 
@@ -232,20 +230,29 @@
         </div>
         {% endif %}
 
-        {% if products|length > 0 %}
-        <a href="{{ url_for('index') }}" class="btn">
-            <i class="fas fa-home"></i> Orqaga qaytish</a>
+        <div class="cart-buttons">
+            <a href="{{ url_for('index') }}" class="btn">
+                <i class="fas fa-home"></i> Orqaga qaytish
+            </a>
+
+            {% if products and products|length > 0 %}
+            <a href="{{ url_for('checkout') }}" class="btn">
+                <i class="fas fa-box"></i> Buyurtma berish
+            </a>
             {% endif %}
-        <a href="{{ url_for('checkout') }}" class="btn">
-            <i class="fas fa-box"></i> Buyurtma berish</a>
+        </div>
     </div>
 
     {# ✅ Agar savat bo'sh bo'lsa o'rtaga rasm chiqadi #}
     {% if not products %}
     <div class="empty-cart">
         <img src="{{ url_for('static', filename='images/empty-cart.png') }}" alt="Savat bo'sh">
+        <i style="margin-left: 20px; font-size: 18px; color: #555; position: absolute;">
+            Sizning savatingiz bo'sh! Mahsulot qo'shing.
+        </i>
     </div>
     {% endif %}
+
 
     <script>
         document.querySelectorAll('.qty-btn').forEach(btn => {
