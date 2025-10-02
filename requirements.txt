@@ -12,3 +12,4 @@ qrcode
 reportlab
 requests>=2.31.0
 werkzeug
+gunicorn
