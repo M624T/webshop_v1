@@ -68,9 +68,15 @@ The SQLite database contains two main tables:
 
 ### Admin Features
 - Add new products with images and videos
-- Edit existing products
+- Edit existing products with drag-and-drop reordering
 - Delete products
-- Product image ordering
+- **Enhanced Admin UX (Oct 2, 2025)**:
+  - Interactive help tooltips (?) for every form field
+  - Separate description images from product gallery images
+  - Description images shown in list format with preview and embed code
+  - Support for embedding images in descriptions using `{filename.jpg}` syntax
+  - Fully responsive design for all devices
+  - Visual feedback for all actions
 
 ### API Endpoints
 - `/api/products` - Get products with pagination
@@ -94,6 +100,16 @@ The SQLite database contains two main tables:
 - Command: `gunicorn --bind=0.0.0.0:5000 --reuse-port app:app`
 
 ## Recent Changes
+- **2025-10-02**: Admin Panel UX Enhancement
+  - Completely redesigned admin_add_product.html with modern UX
+  - Completely redesigned admin_edit_product.html with modern UX
+  - Added interactive help tooltips (?) for each form field
+  - Separated description images from product gallery images
+  - Description images now show in list format with preview and embed code
+  - Fixed backend to prevent mixing description images with product images
+  - Added full responsive design for mobile, tablet, and desktop
+  - Added clear instructions for embedding images using {filename.jpg} syntax
+
 - **2025-10-02**: Imported from GitHub and configured for Replit
   - Installed Python 3.11 and all dependencies
   - Updated app.py to bind to port 5000
