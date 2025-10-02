@@ -883,4 +883,4 @@ def api_chat():
     reply_text = f"Siz yubordingiz: {user_message}"  # minimal javob
     return jsonify({'reply': reply_text})
 if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0')
+    app.run(debug=True, host='0.0.0.0', port=5000)
