@@ -584,12 +584,9 @@ def admin_add_product():
                 vfile.save(vpath)
                 original_video_to_unique[vfile.filename] = secure_name
         
-        # Tartib bo'yicha birlashtirish
+        # Tartib bo'yicha birlashtirish (faqat mahsulot rasmlari)
         ordered_images = []
         for orig in ordered_product:
-            if orig in original_to_unique:
-                ordered_images.append(original_to_unique[orig])
-        for orig in ordered_desc:
             if orig in original_to_unique:
                 ordered_images.append(original_to_unique[orig])
         
@@ -646,7 +643,7 @@ def admin_edit_product(product_id):
         video_order = request.form.get('video_order', '')
         ordered_videos = [x.strip() for x in video_order.split(',') if x.strip()]
         
-        # Yangi rasmlar
+        # Yangi mahsulot rasmlari
         for file in request.files.getlist('new_images'):
             if file and allowed_file(file.filename):
                 ext = os.path.splitext(file.filename)[1]
@@ -655,6 +652,21 @@ def admin_edit_product(product_id):
                 filepath = os.path.join(app.config['UPLOAD_FOLDER'], secure_name)
                 file.save(filepath)
                 ordered_images.append(secure_name)
+        
+        # Yangi tavsifnoma rasmlari (faqat description ichida ishlatiladi)
+        desc_mapping = {}
+        for file in request.files.getlist('desc_images'):
+            if file and allowed_file(file.filename):
+                ext = os.path.splitext(file.filename)[1]
+                unique_filename = datetime.now().strftime('%Y%m%d%H%M%S%f') + '_' + uuid.uuid4().hex[:6] + ext
+                secure_name = secure_filename(unique_filename)
+                filepath = os.path.join(app.config['UPLOAD_FOLDER'], secure_name)
+                file.save(filepath)
+                desc_mapping[file.filename] = secure_name
+        
+        # Description ichidagi {original} ni {unique} ga almashtirish
+        for orig, unique in desc_mapping.items():
+            description = description.replace(f'{{{orig}}}', f'{{{unique}}}')
         
         # Yangi videolar
         for vfile in request.files.getlist('new_videos'):

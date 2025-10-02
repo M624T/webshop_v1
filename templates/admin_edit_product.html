@@ -1,137 +1,385 @@
 <!DOCTYPE html>
 <html lang="uz">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Mahsulotni tahrirlash</title>
-<link rel="icon" href="{{ url_for('static', filename='favicon.ico') }}" type="image/x-icon">
-
-<!-- SortableJS (rasm tartibini o‘zgartirish uchun) -->
-<script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
-
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mahsulotni tahrirlash</title>
+    <link rel="icon" href="{{ url_for('static', filename='favicon.ico') }}" type="image/x-icon">
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
 <style>
-body {
-    font-family: sans-serif;
-    background: #f9f9f9;
-    padding: 10px;
-}
-h2 {
-    text-align:center;
-    margin:10px 0 20px 0;
-    color:#333;
-}
-form {
-    background: #fff;
-    padding: 20px;
-    border-radius: 8px;
-    max-width: 600px;
-    margin: auto;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-}
-label {
-    display:block;
-    margin-top:12px;
-    font-weight:bold;
-}
-input, textarea {
-    width: 100%;
-    padding: 10px;
-    margin-top: 4px;
-    border: 1px solid #ccc;
-    border-radius: 4px;
-    font-size:16px;
-    box-sizing:border-box;
-}
-button {
-    padding: 14px;
-    background: #28a745;
-    color: white;
-    border: none;
-    border-radius: 4px;
-    font-size: 18px;
-    cursor: pointer;
-    width: 100%;
-}
-button:hover { background:#218838; }
+    body {
+        font-family: Arial, sans-serif;
+        background: #f9f9f9;
+        padding: 10px;
+        margin: 0;
+    }
 
-/* Rasmlar preview */
-.image-preview {
-    display: flex;
-    gap: 10px;
-    flex-wrap: wrap;
-    margin-bottom: 15px;
-    justify-content: center;
-}
-.image-box {
-    position: relative;
-    width: 120px;
-    height: 120px;
-    border: 1px solid #ccc;
-    border-radius: 6px;
-    overflow: hidden;
-    background: #fff;
-    box-shadow: 0 1px 4px rgba(0,0,0,0.1);
-    display:flex;
-    align-items:center;
-    justify-content:center;
-    cursor:grab;
-}
-.image-box img {
-    width:100%;
-    height:100%;
-    object-fit:cover;
-    user-select:none;
-    pointer-events:none;
-}
-.remove-btn {
-    position: absolute;
-    top: 4px;
-    right: 4px;
-    background: rgba(255, 0, 0, 0.9);
-    color: white;
-    border: none;
-    border-radius: 50%;
-    width: 24px;
-    height: 24px;
-    font-size: 16px;
-    line-height: 20px;
-    text-align: center;
-    cursor: pointer;
-    padding: 0;
-    user-select:none;
-}
-@media (max-width: 480px){
-    form {padding:15px;}
-    .image-box {width:90px;height:90px;}
-    button {font-size:16px;}
-}
+    h2 {
+        text-align: center;
+        margin: 10px 0 20px 0;
+        color: #333;
+        font-size: clamp(1.3rem, 2vw, 1.8rem);
+    }
+
+    form {
+        background: #fff;
+        padding: clamp(16px, 3vw, 24px);
+        border-radius: 8px;
+        max-width: 900px;
+        margin: auto;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+
+    .form-group {
+        margin-bottom: 20px;
+    }
+
+    .label-with-help {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 6px;
+    }
+
+    label {
+        display: block;
+        font-weight: bold;
+        color: #555;
+        font-size: 0.95rem;
+    }
+
+    .help-btn {
+        background: #007bff;
+        color: white;
+        border: none;
+        border-radius: 50%;
+        width: 20px;
+        height: 20px;
+        font-size: 12px;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        transition: background 0.2s;
+    }
+
+    .help-btn:hover {
+        background: #0056b3;
+    }
+
+    .help-text {
+        display: none;
+        background: #e7f3ff;
+        border-left: 3px solid #007bff;
+        padding: 10px;
+        margin-top: 5px;
+        border-radius: 4px;
+        font-size: 0.9rem;
+        color: #333;
+        line-height: 1.5;
+    }
+
+    .help-text.show {
+        display: block;
+    }
+
+    input, textarea {
+        width: 100%;
+        padding: 10px;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        font-size: 1rem;
+        box-sizing: border-box;
+        font-family: inherit;
+    }
+
+    input:focus, textarea:focus {
+        border-color: #007bff;
+        outline: none;
+    }
+
+    button[type="submit"] {
+        padding: 14px;
+        background: #28a745;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        font-size: 1.1rem;
+        cursor: pointer;
+        width: 100%;
+        font-weight: bold;
+        transition: background 0.3s;
+    }
+
+    button[type="submit"]:hover { 
+        background: #218838; 
+    }
+
+    .section-title {
+        font-weight: bold;
+        color: #333;
+        margin: 20px 0 10px 0;
+        font-size: 1rem;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .image-preview {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+        margin-bottom: 15px;
+    }
+
+    .image-box {
+        position: relative;
+        width: 120px;
+        height: 120px;
+        border: 1px solid #ccc;
+        border-radius: 6px;
+        overflow: hidden;
+        background: #fff;
+        box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: grab;
+    }
+
+    .image-box img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        user-select: none;
+        pointer-events: none;
+    }
+
+    .desc-image-item {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 10px;
+        border: 1px solid #ddd;
+        border-radius: 6px;
+        background: #f8f9fa;
+        width: 100%;
+        box-sizing: border-box;
+        cursor: grab;
+        margin-bottom: 8px;
+    }
+
+    .desc-image-item img {
+        width: 80px;
+        height: 80px;
+        object-fit: cover;
+        border-radius: 4px;
+        flex-shrink: 0;
+    }
+
+    .desc-image-info {
+        flex: 1;
+        min-width: 0;
+    }
+
+    .desc-image-name {
+        font-weight: 600;
+        color: #333;
+        word-break: break-all;
+        margin-bottom: 4px;
+        font-size: 0.9rem;
+    }
+
+    .desc-image-usage {
+        font-size: 0.85rem;
+        color: #666;
+        font-family: 'Courier New', monospace;
+        background: #fff;
+        padding: 4px 8px;
+        border-radius: 3px;
+        border: 1px solid #ddd;
+        word-break: break-all;
+    }
+
+    .remove-btn {
+        background: #dc3545;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        padding: 6px 12px;
+        font-size: 14px;
+        cursor: pointer;
+        flex-shrink: 0;
+        transition: background 0.2s;
+    }
+
+    .remove-btn:hover {
+        background: #c82333;
+    }
+
+    .image-box .remove-btn {
+        position: absolute;
+        top: 4px;
+        right: 4px;
+        border-radius: 50%;
+        width: 24px;
+        height: 24px;
+        padding: 0;
+        font-size: 16px;
+        line-height: 24px;
+        user-select: none;
+    }
+
+    @media (max-width: 700px) {
+        .desc-image-item {
+            flex-direction: column;
+            align-items: flex-start;
+        }
+        .desc-image-item img {
+            width: 100%;
+            height: auto;
+        }
+    }
+
+    @media (max-width: 480px){
+        form { padding: 15px; }
+        .image-box { width: 90px; height: 90px; }
+        button { font-size: 16px; }
+        .desc-image-item {
+            gap: 8px;
+        }
+    }
 </style>
 </head>
 <body>
 <h2>Mahsulotni tahrirlash</h2>
 
 <form method="POST" enctype="multipart/form-data">
-    <label for="name">Nom:</label>
-    <input type="text" name="name" id="name" value="{{ product['name'] }}" required>
+    
+    <div class="form-group">
+        <div class="label-with-help">
+            <label for="name">Mahsulot nomi:</label>
+            <button type="button" class="help-btn" onclick="toggleHelp('help-name')">?</button>
+        </div>
+        <div id="help-name" class="help-text">
+            Mahsulotning to'liq nomini kiriting. Bu nom sahifada va ro'yxatda ko'rsatiladi.
+        </div>
+        <input type="text" name="name" id="name" value="{{ product['name'] }}" required>
+    </div>
 
-    <label for="price">Narx (so'm):</label>
-    <input type="number" name="price" id="price" value="{{ product['price'] }}" step="any" min="0" required>
+    <div class="form-group">
+        <div class="label-with-help">
+            <label for="price">Narx (so'm):</label>
+            <button type="button" class="help-btn" onclick="toggleHelp('help-price')">?</button>
+        </div>
+        <div id="help-price" class="help-text">
+            Mahsulotning narxini so'mda kiriting. Faqat raqam kiriting.
+        </div>
+        <input type="number" name="price" id="price" value="{{ product['price'] }}" step="any" min="0" required>
+    </div>
 
-    <label for="description">Tavsif:</label>
-    <textarea name="description" id="description" rows="5" required>{{ product['description'] }}</textarea>
+    <div class="form-group">
+        <div class="label-with-help">
+            <label for="stock">Zaxira (dona):</label>
+            <button type="button" class="help-btn" onclick="toggleHelp('help-stock')">?</button>
+        </div>
+        <div id="help-stock" class="help-text">
+            Omborda mavjud mahsulot sonini kiriting.
+        </div>
+        <input type="number" name="stock" id="stock" value="{{ product['stock'] }}" min="0" required>
+    </div>
 
-    <label for="stock">Zaxira:</label>
-    <input type="number" name="stock" id="stock" value="{{ product['stock'] }}" min="0" required>
+    <div class="form-group">
+        <div class="label-with-help">
+            <label for="desc_images">Tavsif uchun yangi rasmlar:</label>
+            <button type="button" class="help-btn" onclick="toggleHelp('help-desc-images')">?</button>
+        </div>
+        <div id="help-desc-images" class="help-text">
+            <strong>Tavsif matni ichida ko'rsatiladigan rasmlar.</strong><br>
+            Bu rasmlar mahsulot rasmlari bilan aralashmaydi. Yuklangandan keyin har bir rasm uchun kod ko'rsatiladi. 
+            Kodni nusxa olib, pastdagi "Tavsif" maydoniga joylashtiring.
+        </div>
+        <input type="file" id="desc_images" name="desc_images" accept="image/*" multiple>
+        
+        <div class="section-title" style="margin-top: 15px;">
+            Mavjud tavsif rasmlari:
+            <button type="button" class="help-btn" onclick="toggleHelp('help-existing-desc')">?</button>
+        </div>
+        <div id="help-existing-desc" class="help-text">
+            Tartibni o'zgartirish uchun sudrab tashlang. O'chirish uchun "O'chirish" tugmasini bosing.
+        </div>
+        <div id="existing_desc_preview"></div>
+        <input type="hidden" name="existing_desc_order" id="existing_desc_order">
+        
+        <div id="new_desc_preview" style="margin-top: 10px;"></div>
+        <input type="hidden" name="desc_image_order" id="desc_image_order">
+    </div>
 
-    <!-- Yangi rasm qo‘shish -->
-    <label for="new_images">Yangi rasmlar (ixtiyoriy):</label>
-    <input type="file" id="new_images" name="new_images" accept="image/*" multiple>
-    <!-- Yangi videolar qo‘shish -->
-    <label for="new_videos">Yangi videolar (3:4, ixtiyoriy):</label>
-    <input type="file" id="new_videos" name="new_videos" accept="video/mp4,video/webm,video/quicktime,video/x-matroska" multiple>
+    <div class="form-group">
+        <div class="label-with-help">
+            <label for="description">Tavsif:</label>
+            <button type="button" class="help-btn" onclick="toggleHelp('help-description')">?</button>
+        </div>
+        <div id="help-description" class="help-text">
+            <strong>Mahsulot haqida batafsil ma'lumot yozing.</strong><br>
+            📷 <strong>Rasm qo'yish:</strong> Yuqorida yuklab olgan tavsif rasmlarini bu yerga qo'yish uchun, 
+            rasmning kodini (masalan: <code>{20250930205130734274_bacc47.png}</code>) nusxa olib, kerakli joyga joylashtiring.<br>
+            <em>Misol:</em><br>
+            <code>Bu ajoyib mahsulot!</code><br>
+            <code>{20250930205130734274_bacc47.png}</code><br>
+            <code>Yuqori sifatli!</code>
+        </div>
+        <textarea name="description" id="description" rows="6" required>{{ product['description'] }}</textarea>
+    </div>
 
-    <!-- Mavjud videolar (tartib bilan) -->
-    <p><strong>Mavjud videolar (tartibni o‘zgartirish uchun sudrab tashlang):</strong></p>
+    <div class="form-group">
+        <div class="label-with-help">
+            <label for="new_images">Yangi mahsulot rasmlari (ixtiyoriy):</label>
+            <button type="button" class="help-btn" onclick="toggleHelp('help-new-images')">?</button>
+        </div>
+        <div id="help-new-images" class="help-text">
+            Mahsulotga yangi rasmlar qo'shish uchun foydalaning. Mavjud rasmlar pastda ko'rsatilgan.
+        </div>
+        <input type="file" id="new_images" name="new_images" accept="image/*" multiple>
+        <div id="new_images_preview" class="image-preview"></div>
+    </div>
+
+    <div class="section-title">
+        Mavjud mahsulot rasmlari:
+        <button type="button" class="help-btn" onclick="toggleHelp('help-existing-images')">?</button>
+    </div>
+    <div id="help-existing-images" class="help-text">
+        Tartibni o'zgartirish uchun sudrab tashlang. Birinchi rasm asosiy rasm hisoblanadi. O'chirish uchun "×" tugmasini bosing.
+    </div>
+    <div class="image-preview" id="preview">
+        {% for img in product['image'].split(',') if product['image'] %}
+        <div class="image-box" data-filename="{{ img }}">
+            <img src="{{ url_for('static', filename='images/' + img.strip()) }}" alt="rasm">
+            <button type="button" class="remove-btn">&times;</button>
+        </div>
+        {% endfor %}
+    </div>
+    <input type="hidden" name="image_order" id="image_order">
+
+    <div class="form-group">
+        <div class="label-with-help">
+            <label for="new_videos">Yangi videolar (3:4, ixtiyoriy):</label>
+            <button type="button" class="help-btn" onclick="toggleHelp('help-new-videos')">?</button>
+        </div>
+        <div id="help-new-videos" class="help-text">
+            Mahsulotga yangi vertikal (3:4) videolar qo'shish uchun. Qo'llab-quvvatlanadigan formatlar: MP4, WebM, MOV.
+        </div>
+        <input type="file" id="new_videos" name="new_videos" accept="video/mp4,video/webm,video/quicktime,video/x-matroska" multiple>
+        <div id="new_videos_preview" class="image-preview"></div>
+    </div>
+
+    <div class="section-title">
+        Mavjud videolar:
+        <button type="button" class="help-btn" onclick="toggleHelp('help-existing-videos')">?</button>
+    </div>
+    <div id="help-existing-videos" class="help-text">
+        Tartibni o'zgartirish uchun sudrab tashlang. O'chirish uchun "×" tugmasini bosing.
+    </div>
     <div class="image-preview" id="video_preview">
         {% if product['videos'] %}
             {% for vid in product['videos'].split(',') if vid %}
@@ -142,32 +390,20 @@ button:hover { background:#218838; }
             {% endfor %}
         {% endif %}
     </div>
-
-    <!-- Videolar tartibini yuborish -->
     <input type="hidden" name="video_order" id="video_order">
 
-    <!-- Mavjud rasmlar (tartib bilan) -->
-    <p><strong>Mavjud rasmlar (tartibni o‘zgartirish uchun sudrab tashlang):</strong></p>
-    <div class="image-preview" id="preview">
-        {% for img in product['image'].split(',') if product['image'] %}
-        <div class="image-box" data-filename="{{ img }}">
-            <img src="{{ url_for('static', filename='images/' + img.strip()) }}" alt="rasm">
-            <button type="button" class="remove-btn">&times;</button>
-        </div>
-        {% endfor %}
-    </div>
-
-    <!-- Tartibni backendga yuborish uchun -->
-    <input type="hidden" name="image_order" id="image_order">
-
-    <button type="submit">Saqlash</button>
+    <button type="submit">✅ Saqlash</button>
 </form>
 
 <script>
+function toggleHelp(id) {
+    const helpText = document.getElementById(id);
+    helpText.classList.toggle('show');
+}
+
 const preview = document.getElementById('preview');
 const orderInput = document.getElementById('image_order');
 
-// rasm o‘chirish
 preview.querySelectorAll('.remove-btn').forEach(btn=>{
     btn.addEventListener('click',()=>{
         btn.parentElement.remove();
@@ -175,32 +411,32 @@ preview.querySelectorAll('.remove-btn').forEach(btn=>{
     });
 });
 
-// tartibni yangilash
 function updateOrder(){
     const names = [];
     preview.querySelectorAll('.image-box').forEach(div=>{
-        names.push(div.dataset.filename);
+        if(div.dataset.filename) {
+            names.push(div.dataset.filename);
+        }
     });
     orderInput.value = names.join(',');
 }
 
-// drag&drop tartiblash
 new Sortable(preview,{
     animation:150,
     onEnd:updateOrder
 });
 
-// dastlabki tartib
 updateOrder();
 
-// ===== Videolar uchun tartib va o'chirish =====
 const videoPreview = document.getElementById('video_preview');
 const videoOrder = document.getElementById('video_order');
 
 function updateVideoOrder(){
     const names = [];
     videoPreview.querySelectorAll('.image-box').forEach(div=>{
-        names.push(div.dataset.videoname);
+        if(div.dataset.videoname) {
+            names.push(div.dataset.videoname);
+        }
     });
     videoOrder.value = names.join(',');
 }
@@ -218,6 +454,120 @@ new Sortable(videoPreview,{
 });
 
 updateVideoOrder();
+
+const newImagesInput = document.getElementById('new_images');
+const newImagesPreview = document.getElementById('new_images_preview');
+let newImageFiles = [];
+
+newImagesInput.addEventListener('change', function() {
+    newImageFiles = Array.from(this.files);
+    renderNewImages();
+});
+
+function renderNewImages() {
+    newImagesPreview.innerHTML = '';
+    newImageFiles.forEach((file, index) => {
+        const reader = new FileReader();
+        reader.onload = e => {
+            const div = document.createElement('div');
+            div.className = 'image-box';
+            div.innerHTML = `
+                <img src="${e.target.result}" alt="${file.name}">
+                <button type="button" class="remove-btn">&times;</button>
+            `;
+            newImagesPreview.appendChild(div);
+            div.querySelector('.remove-btn').addEventListener('click', () => {
+                newImageFiles = newImageFiles.filter(f => f !== file);
+                renderNewImages();
+            });
+        };
+        reader.readAsDataURL(file);
+    });
+}
+
+const newVideosInput = document.getElementById('new_videos');
+const newVideosPreview = document.getElementById('new_videos_preview');
+let newVideoFiles = [];
+
+newVideosInput.addEventListener('change', function() {
+    newVideoFiles = Array.from(this.files);
+    renderNewVideos();
+});
+
+function renderNewVideos() {
+    newVideosPreview.innerHTML = '';
+    newVideoFiles.forEach((file, index) => {
+        const url = URL.createObjectURL(file);
+        const div = document.createElement('div');
+        div.className = 'image-box';
+        div.style.aspectRatio = '3/4';
+        div.innerHTML = `
+            <video src="${url}" style="width:100%;height:100%;object-fit:cover;" controls muted></video>
+            <button type="button" class="remove-btn">&times;</button>
+        `;
+        newVideosPreview.appendChild(div);
+        div.querySelector('.remove-btn').addEventListener('click', () => {
+            newVideoFiles = newVideoFiles.filter(f => f !== file);
+            renderNewVideos();
+        });
+    });
+}
+
+const descInput = document.getElementById('desc_images');
+const newDescPreview = document.getElementById('new_desc_preview');
+const descOrderInput = document.getElementById('desc_image_order');
+let descFiles = [];
+
+descInput.addEventListener('change', function () {
+    descFiles = Array.from(this.files);
+    renderDescImages();
+});
+
+function renderDescImages() {
+    newDescPreview.innerHTML = '';
+    descFiles.forEach((file, index) => {
+        const reader = new FileReader();
+        reader.onload = e => {
+            const div = document.createElement('div');
+            div.className = 'desc-image-item';
+            div.dataset.index = index;
+            div.dataset.filename = file.name;
+            div.innerHTML = `
+                <img src="${e.target.result}" alt="${file.name}">
+                <div class="desc-image-info">
+                    <div class="desc-image-name">${file.name}</div>
+                    <div class="desc-image-usage">{${file.name}}</div>
+                </div>
+                <button type="button" class="remove-btn">O'chirish</button>
+            `;
+            newDescPreview.appendChild(div);
+            div.querySelector('.remove-btn').addEventListener('click', () => {
+                descFiles = descFiles.filter(f => f.name !== file.name);
+                renderDescImages();
+            });
+        };
+        reader.readAsDataURL(file);
+    });
+    updateDescOrderInput();
+}
+
+function updateDescOrderInput() {
+    descOrderInput.value = descFiles.map(f => f.name).join(',');
+}
+
+new Sortable(newDescPreview, {
+    animation: 150,
+    onEnd: function () {
+        const newFilesOrder = [];
+        newDescPreview.querySelectorAll('.desc-image-item').forEach(div => {
+            const filename = div.dataset.filename;
+            const file = descFiles.find(f => f.name === filename);
+            if (file) newFilesOrder.push(file);
+        });
+        descFiles = newFilesOrder;
+        updateDescOrderInput();
+    }
+});
 </script>
 </body>
 </html>
