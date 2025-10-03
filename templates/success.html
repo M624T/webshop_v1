@@ -77,7 +77,7 @@
     <main class="container">
         <div class="success-message">
             <div class="success-icon">
-                <i class="fas fa-check-circle"></i>
+                <i class="fas fa-check-circle" style="font-size: 80px; color: #4CAF50;"></i>
             </div>
             <h2>✅ Buyurtmangiz qabul qilindi!</h2>
             <p>Buyurtma raqami: #{{ order.id }}</p>
@@ -99,9 +99,10 @@
             </div>
 
             <!-- 📄 Chek yuklab olish tugmasi -->
-            <a href="{{ url_for('download_receipt', order_id=order.id) }}" class="btn" style="margin-top:10px;">
-                <i class="fas fa-file-pdf"></i> Chekni PDF sifatida yuklab olish
-            </a>
+            <!-- Tugma ichida data-id -->
+            <button id="downloadBtn" class="btn" data-order="{{ order.id }}">
+                Chekni yuklab olish
+            </button>
 
             <!-- yoki shrift tanlash imkoniyati -->
             <!-- <a href="{{ url_for('download_receipt', order_id=order.id) }}?font=NotoSans" class="btn"
@@ -113,17 +114,36 @@
 
 
 
-            <a href="{{ url_for('index') }}" class="btn" style="margin-top: 30px;">
+            <!-- <a href="{{ url_for('index') }}" class="btn" style="margin-top: 30px;">
                 <i class="fas fa-shopping-bag"></i> Yangi buyurtma berish
-            </a>
+            </a> -->
         </div>
     </main>
 
-    <footer class="footer">
+    <!-- <footer class="footer">
         <div class="container">
             <p>© 2025 Online Do'kon. Barcha huquqlar himoyalangan.</p>
         </div>
-    </footer>
+    </footer> -->
 </body>
+<script>
+    document.getElementById("downloadBtn").addEventListener("click", function () {
+        let orderId = this.dataset.order;  // ✅ Tugmadan olish
+
+        fetch(`/download_receipt/${orderId}`)
+            .then(res => res.blob())
+            .then(blob => {
+                let url = URL.createObjectURL(blob);
+                let a = document.createElement("a");
+                a.href = url;
+                a.download = `chek_${orderId}.pdf`;
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+                URL.revokeObjectURL(url);
+                alert("⌛ Chekni yuklab olish boshlandi!");
+            });
+    });
+</script>
 
 </html>

@@ -19,7 +19,9 @@ from werkzeug.utils import secure_filename
 import os
 import re
 import uuid
+import json
 import random
+import base64
 import sqlite3
 import requests
 from io import BytesIO
@@ -34,6 +36,7 @@ from reportlab.lib.utils import ImageReader
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.pdfbase.pdfmetrics import stringWidth
+from reportlab.lib.colors import black
 
 
 # ==============================================================================
@@ -373,8 +376,7 @@ def download_receipt(order_id):
     """PDF chek yuklab olish"""
     requested_font = request.args.get('font', 'DejaVuSans')
     font_name = requested_font if requested_font in REGISTERED_FONTS else 'DejaVuSans'
-    font_size = 10
-    
+    font_size = 8  # O'zgartirilgan font o'lchami
     conn = get_db_connection()
     order = conn.execute('SELECT * FROM orders WHERE id = ?', (order_id,)).fetchone()
     if not order:
@@ -385,17 +387,20 @@ def download_receipt(order_id):
     raw_products = order['products'] or ''
     parsed = re.findall(r'\(#(\d+)\s+(.*?)\s+x\s+(\d+)\)', raw_products)
     items = []
-    
     if parsed:
         for pid, name, qty in parsed:
             prow = conn.execute('SELECT price FROM products WHERE id = ?', (int(pid),)).fetchone()
-            price = int(prow['price']) if prow and prow['price'] else None
-            items.append({'id': pid, 'name': name.strip(), 'qty': int(qty), 'price': price})
+            price = int(prow['price']) if prow and prow['price'] else 0  # None o'rniga 0
+            items.append({
+                'id': pid,
+                'name': name.strip(),
+                'qty': int(qty),
+                'price': price
+            })
     else:
         parts = [p.strip() for p in re.split(r',\s*|\n', raw_products) if p.strip()]
         for p in parts:
-            items.append({'id': '', 'name': p, 'qty': '', 'price': None})
-    
+            items.append({'id': '', 'name': p, 'qty': '', 'price': 0})
     conn.close()
     
     # PDF parametrlari
@@ -405,10 +410,8 @@ def download_receipt(order_id):
     content_width = page_width - left_margin - right_margin
     
     def wrap_text(text, font, size, max_width):
-        """Matnni kenglikka mos qatorlarga bo'lish"""
         words = text.split()
-        lines = []
-        cur = ""
+        lines, cur = [], ""
         for w in words:
             test = cur + (" " if cur else "") + w
             if stringWidth(test, font, size) <= max_width:
@@ -421,16 +424,15 @@ def download_receipt(order_id):
             lines.append(cur)
         return lines if lines else [""]
     
-    # Chek balandligini hisoblash
+    # Chek balandligi
     line_height = font_size * 1.3
     lines_count = 0
-    
     header_lines = [
         "ONLINE DO'KON / ОNLINE МАГАЗИН",
         f"Check / Чек: {order['id']}",
         f"Sana / Дата: {datetime.now().strftime('%Y-%m-%d %H:%M')}"
     ]
-    lines_count += sum(len(wrap_text(l, font_name, font_size + 1, content_width)) for l in header_lines)
+    lines_count += sum(len(wrap_text(l, font_name, font_size+1, content_width - 10*mm)) for l in header_lines)  # Kichikroq va torroq joy
     
     customer_lines = [
         f"Ism / Имя: {order['name']}",
@@ -439,31 +441,39 @@ def download_receipt(order_id):
     ]
     lines_count += sum(len(wrap_text(l, font_name, font_size, content_width)) for l in customer_lines)
     
-    for it in items:
-        lines = wrap_text(it['name'], font_name, font_size, content_width - (20 * mm))
-        lines_count += len(lines) + 1
+    for i, it in enumerate(items):
+        lines = wrap_text(it['name'], font_name, font_size, content_width-(25*mm))  # Ko'proq joy subtotal uchun
+        lines_count += len(lines) + 2  # +1 for subtotal, +1 for separator (faqat oxirgisiz)
+        if i < len(items) - 1:  # Oxirgi mahsulotdan keyin separator qo'shmaymiz
+            lines_count += 1  # Separator uchun qo'shimcha
     
-    footer_lines = ["", f"JAMI / ИТОГО: {int(order['total_price']):,} so'm", "", "Rahmat! Спасибо за покупку!"]
-    lines_count += sum(len(wrap_text(l, font_name, font_size, content_width)) for l in footer_lines)
+    # Jami uchun 2 qator (galochka va matn)
+    lines_count += 2
     
-    qr_size = 40 * mm
-    top_margin = 6 * mm
-    bottom_margin = 8 * mm
+    # QR tagida bitta qator (lekin wrapped bo'lishi mumkin, shuning uchun +2)
+    lines_count += 2
+    
+    qr_size = 45 * mm  # Biroz kattaroq QR
+    top_margin = 8 * mm  # Ko'proq tepa margin
+    bottom_margin = 15 * mm  # Pastki marginni oshirish
     content_height = lines_count * line_height
-    height_pts = max(top_margin + content_height + qr_size + bottom_margin + 20, 120 * mm)
+    height_pts = max(top_margin + content_height + qr_size + bottom_margin + 30, 160*mm)  # Min balandlikni oshirish va bufer
     
     # PDF yaratish
     buffer = BytesIO()
     c = canvas.Canvas(buffer, pagesize=(page_width, height_pts))
+    
     y = height_pts - top_margin
     
-    # Header
+    # Header - qora va markazlangan
+    c.setFont(font_name, font_size+1)
     for hl in header_lines:
-        c.setFont(font_name, font_size + 1)
-        c.drawCentredString(page_width / 2, y, hl)
-        y -= line_height
-    
-    y -= 3
+        wrapped = wrap_text(hl, font_name, font_size+1, content_width - 10*mm)  # Torroq joy
+        for line in wrapped:
+            c.drawCentredString(page_width/2, y, line)
+            y -= line_height * 1.1
+    y -= 5
+    c.setFont(font_name, font_size)
     
     # Mijoz ma'lumotlari
     c.setFont(font_name, font_size)
@@ -471,68 +481,106 @@ def download_receipt(order_id):
         for w in wrap_text(cl, font_name, font_size, content_width):
             c.drawString(left_margin, y, w)
             y -= line_height
+    y -= 5
+    c.setStrokeColor(black)
+    c.setLineWidth(1)
+    c.line(left_margin, y, page_width-right_margin, y)
+    y -= line_height * 1.5
+    c.setLineWidth(0.5)
     
-    y -= 3
-    c.line(left_margin, y, page_width - right_margin, y)
-    y -= line_height
-    
-    # Mahsulotlar sarlavhasi
+    # Mahsulotlar sarlavhasi - qalinroq
+    c.setFont(font_name, font_size + 1)
     c.drawString(left_margin, y, "Nomi / Товар")
-    c.drawRightString(page_width - right_margin, y, "Soni  Narx  Jami")
-    y -= line_height
+    c.drawRightString(page_width-right_margin, y, "Soni x Narx = Jami")
+    y -= line_height * 1.2
+    c.setFont(font_name, font_size)
     
     # Mahsulotlar
-    for it in items:
-        name_lines = wrap_text(it['name'], font_name, font_size, content_width - (30 * mm))
-        for i, nl in enumerate(name_lines):
+    for i, it in enumerate(items):
+        name_lines = wrap_text(it['name'], font_name, font_size, content_width-(30*mm))
+        for j, nl in enumerate(name_lines):
             c.drawString(left_margin, y, nl)
-            if i == 0:
+            if j == 0:
                 qty = str(it['qty']) if it.get('qty') != '' else ''
                 price = f"{int(it['price']):,}" if it.get('price') else ''
-                total_line = f"{qty}  {price}" if price else qty
-                c.drawRightString(page_width - right_margin, y, total_line)
+                subtotal = it['qty'] * it['price'] if it.get('qty') != '' and it.get('price') else 0
+                total_line = f"{qty} x {price} = {subtotal:,}" if price and qty else (f"{qty} x {price}" if price or qty else "")
+                c.drawRightString(page_width-right_margin, y, total_line if total_line else "")
             y -= line_height
-        y -= 2
-    
-    y -= line_height/2
-    c.line(left_margin, y, page_width - right_margin, y)
-    y -= line_height
-    
-    # Jami summa
-    c.setFont(font_name, font_size + 1)
-    c.drawString(left_margin, y, f"JAMI / ИТОГО: {int(order['total_price']):,} so'm")
-    y -= line_height * 1.5
-    
-    # QR kod yaratish
-    qr_text_items = []
-    for it in items:
-        if it.get('id'):
-            qr_text_items.append(f"#{it['id']}:{it['qty']}")
+        y -= line_height / 2  # Bir oz spacing nomi va separator orasida
+        
+        if i < len(items) - 1:  # Oxirgi mahsulotdan keyin separator qo'shmaymiz
+            # Har bir mahsulotdan keyin separator qo'shish ("-----" kabi chiziq)
+            c.setFont(font_name, font_size - 1)  # Kichikroq font
+            dash_width = stringWidth("-", font_name, font_size - 1)
+            num_dashes = int(content_width / dash_width)  # Kenglikka mos
+            separator_line = "-" * num_dashes  # "----------" dan uzunroq bo'ladi
+            c.drawString(left_margin, y, separator_line)
+            c.setFont(font_name, font_size)  # Fontni qaytarish
+            y -= line_height  # Kattaroq spacing separator dan keyin, mahsulotlar orasidagi masofa uchun
+            
+            # Har bir mahsulot blokidan keyin qo'shimcha spacing birxil masofa uchun
+            y -= line_height / 2
         else:
-            qr_text_items.append(f"{it['name']} x{it['qty']}")
-    qr_data = f"Order:{order['id']};Name:{order['name']};Phone:{order['phone']};Items:{'|'.join(qr_text_items)}"
+            y -= line_height  # Oxirgi mahsulotdan keyin oddiy spacing
     
-    qr_img = qrcode.make(qr_data)
+    c.setStrokeColor(black)
+    c.setLineWidth(1.5)
+    c.line(left_margin, y, page_width-right_margin, y)
+    y -= line_height * 2
+    
+    # Jami summa - qalin, dumaloq galochka qo'shildi
+    c.setFont(font_name, font_size+2)
+    # check_symbol = "✔"  # Dumaloq galochka
+    # c.drawString(left_margin + 2*mm, y, check_symbol)  # Chap tomonda galochka
+    c.drawString(left_margin + 8*mm, y, f"JAMI / ИТОГО: {int(order['total_price']):,} so'm")
+    y -= line_height * 1.8
+    c.setFont(font_name, font_size)
+    
+    y -= 5  # QR oldidan bo'sh joy
+    
+    # QR kod (o'zgarmas, lekin joylashuvi yaxshilandi)
+    qr_payload = {
+        "order": order['id'],
+        "name": order['name'],
+        "items": [{"id": it['id'], "qty": it['qty']} for it in items if it['id']],
+        "total": int(order['total_price'])
+    }
+    raw_data = json.dumps(qr_payload)
+    encoded = base64.urlsafe_b64encode(raw_data.encode()).decode()
+    qr_img = qrcode.make(encoded)
     qr_buf = BytesIO()
-    qr_img.save(qr_buf, format='PNG')
+    qr_img.save(qr_buf, format="PNG")
     qr_buf.seek(0)
     qr_reader = ImageReader(qr_buf)
     
-    qr_x = page_width - right_margin - qr_size
-    qr_y = bottom_margin + 4 * mm
+    qr_x = (page_width - qr_size) / 2
+    qr_y = y - qr_size - 2 * mm  # Yuqoridan joylashtirish
     c.drawImage(qr_reader, qr_x, qr_y, width=qr_size, height=qr_size)
+    y = qr_y - 5
     
-    # Footer
-    c.setFont(font_name, font_size - 1)
-    c.drawString(left_margin, bottom_margin + 2 * mm, "Rahmat! Спасибо за покупку!")
-    
+    # QR tagida oddiy rahmat matni
+    c.setFont(font_name, font_size)
+    thanks_text = "Buyurtma berganingiz uchun rahmat! / Спасибо за покупку!"
+    wrapped_thanks = wrap_text(thanks_text, font_name, font_size, content_width - 10*mm)  # Joy SVG uchun
+
+    for line in wrapped_thanks:
+        c.drawCentredString(page_width / 2, y, line)
+        y -= line_height  # ✅ Har bir qator yozilganda pastga tushirish
+
+    y -= line_height / 2  # ✅ Qo'shimcha spacing oxirida
+
+    # PDF tugatish
     c.showPage()
     c.save()
     buffer.seek(0)
-    
-    return send_file(buffer, as_attachment=True,
-                     download_name=f"chek_{order_id}.pdf",
-                     mimetype='application/pdf')
+
+    return send_file(
+        buffer,
+        as_attachment=True,
+        download_name=f"chek_{order_id}.pdf",
+        mimetype="application/pdf"
+    )
 
 
 # ==============================================================================
@@ -936,3 +984,4 @@ def first_image_filter(image_string):
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5000)
+
