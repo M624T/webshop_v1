@@ -26,9 +26,11 @@ import sqlite3
 import requests
 from io import BytesIO
 from datetime import datetime
+from mistralai import Mistral
+from dotenv import load_dotenv, find_dotenv
 
 # PDF va QR kod uchun kutubxonalar
-import ollama
+# import ollama
 import qrcode
 from reportlab.pdfgen import canvas
 from reportlab.lib.units import mm
@@ -42,10 +44,18 @@ from reportlab.lib.colors import black
 # ==============================================================================
 # ILOVANI SOZLASH - Configuration
 # ==============================================================================
+load_dotenv(find_dotenv())  # .env faylidan o'qish
 
 app = Flask(__name__)
 CORS(app)  # CORS - boshqa domenlardan so'rovlarga ruxsat
-app.secret_key = 'secretkey123'
+app.secret_key = os.getenv("DATABASE_KEY")
+print(f"Secret Key: {app.secret_key}")
+
+# === Mistral API sozlamalari ===
+MISTRAL_API_KEY = os.getenv("MISTRAL")
+print(f"Mistral API Key: {MISTRAL_API_KEY}")
+model = "mistral-large-latest"
+client = Mistral(api_key=MISTRAL_API_KEY)
 
 # Fayl yuklash sozlamalari
 UPLOAD_FOLDER = 'static/images'
@@ -298,7 +308,6 @@ def checkout():
             total += product['total_price']
             products.append(product)
     
-    # POST so'rov - buyurtmani saqlash
     if request.method == 'POST':
         name = request.form['name']
         phone = request.form['phone']
@@ -309,11 +318,14 @@ def checkout():
             [f"(#{p['id']} {p['name']} x {p['quantity']})" for p in products]
         )
         
+        # Hozirgi vaqtni olish
+        now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        
         c = conn.cursor()
         c.execute(
-            '''INSERT INTO orders (name, phone, address, location, products, total_price)
-               VALUES (?, ?, ?, ?, ?, ?)''',
-            (name, phone, address, location, product_list, total)
+            '''INSERT INTO orders (name, phone, address, location, products, total_price, data_add)
+               VALUES (?, ?, ?, ?, ?, ?, ?)''',
+            (name, phone, address, location, product_list, total, now)
         )
         order_id = c.lastrowid
         conn.commit()
@@ -324,7 +336,6 @@ def checkout():
     
     conn.close()
     return render_template('checkout.html', cart_items=products, total=total)
-
 
 @app.route('/reverse', methods=['GET'])
 def reverse():
@@ -792,45 +803,106 @@ def chat_ui():
     """Chat sahifasi"""
     return render_template('chat.html')
 
+# =============================================================================
+# === Chat API yo'li ===
+# =============================================================================
+
+# Har bir foydalanuvchi uchun xotira saqlash (simple in-memory)
+chat_memory = {}  # {user_id: [{"role": "user"/"assistant", "content": "..."}]}
 
 @app.route('/chat', methods=['POST'])
 def chat():
-    """Chat bot - AI javob berish"""
-    data = request.get_json(silent=True) or {}
-    user_message = data.get("message", "")
+    data = request.get_json()
+    user_message = data.get("message", "").strip()
+    user_id = data.get("user_id", "anonymous")  # foydalanuvchi ID, anonim bo'lsa default
+
+    if not user_message:
+        return jsonify({"reply": "❗ Xabar bo'sh bo'lishi mumkin emas."})
+
     conn = get_db_connection()
     cursor = conn.cursor()
+
+    # Mahsulotlar dictionary
+    cursor.execute("SELECT id, name, price FROM products")
+    product_rows = cursor.fetchall()
+    products_dict = {str(r['id']): {'name': r['name'], 'price': r['price']} for r in product_rows}
+
+    # Buyurtmalar
+    cursor.execute("""
+        SELECT id, name, phone, address, location, products, total_price, data_add, status 
+        FROM orders
+    """)
+    orders = cursor.fetchall()
+
     context_text = ""
-    
-    if "buyurtma" in user_message.lower():
-        cursor.execute("SELECT * FROM orders")
-        rows = cursor.fetchall()
-        for r in rows:
-            context_text += str(dict(r)) + "\n"
-    elif "mahsulot" in user_message.lower():
-        cursor.execute("SELECT * FROM products")
-        rows = cursor.fetchall()
-        for r in rows:
-            context_text += str(dict(r)) + "\n"
-    
-    conn.close()
-    
-    prompt = f"""
-    Siz onlayn do'kon operatorisiz. Faqat do'kon va mahsulotlar haqida gapiring.
-    Savol: {user_message}
-    Ma'lumot: {context_text or "Hech qanday ma'lumot topilmadi."}
-    """
-    
-    response = ollama.chat(model="mistral", messages=[{"role": "user", "content": prompt}])
-    
-    if "message" in response:
-        reply_text = response["message"]["content"]
-    elif "messages" in response and response["messages"]:
-        reply_text = response["messages"][-1]["content"]
+    if orders:
+        context_text += "📦 **Quyidagi buyurtmalar bazada mavjud:**\n\n"
+        for r in orders:
+            products_text = ""
+            matches = re.findall(r"#(\d+)\s(.+?)\s+x\s+(\d+)", r['products'])
+            for pid, pname, pqty in matches:
+                pid = pid.strip()
+                pname = pname.strip()
+                pqty = int(pqty)
+                price = products_dict.get(pid, {}).get('price', 'Noma’lum')
+                products_text += f"- **{pname}** – {pqty} ta ({price} so'm)\n"
+
+            context_text += (
+                f"🧾 **ID:** {r['id']}\n"
+                f"👤 **Mijoz:** {r['name']}\n"
+                f"📞 **Telefon:** {r['phone']}\n"
+                f"📍 **Manzil:** {r['address']}\n"
+                f"{products_text}"
+                f"💰 **Umumiy narx:** {r['total_price']} so'm\n"
+                f"🗓 **Buyurtma berilgan sana:** {r['data_add'] or 'belgilanmagan'}\n"
+                f"📦 **Holat:** {r['status']}\n\n"
+            )
     else:
-        reply_text = "Javob olinmadi."
-    
-    return jsonify({"reply": reply_text})
+        context_text += "Hech qanday buyurtma topilmadi.\n\n"
+
+    conn.close()
+
+    # --- Xotira uchun eski xabarlarni olish ---
+    memory = chat_memory.get(user_id, [])
+    # Oxirgi 3 ta xabarni olish
+    last_messages = memory[-6:] if memory else [] # 6 ta xabar es
+
+    # AI prompt
+    prompt = f"""
+Siz onlayn do'konning aqlli operatorisiz.
+Foydalanuvchi bilan o'zbek tilida yoki rus tilida tabiiy, samimiy ohangda suhbatlashing foydalanuvchi qaysi tilda so'rasa, o'sha tilda javob bering.
+Avvalgi suhbatlarni eslab qoling:
+
+{''.join([f"{m['role'].capitalize()}: {m['content']}\n" for m in last_messages])}
+
+📚 **Kontekst:**
+{context_text}
+
+🧠 **Foydalanuvchi so'rovi:**
+{user_message}
+
+💬 **Javob (Markdown format bo'lmasin, qisqa va tabiiy ohangda. Ortiqcha javob bermang. Faqat kerakli savolga javob bering):**
+    """
+
+    try:
+        response = client.chat.complete(
+            model=model,
+            messages=[
+                {"role": "system", "content": "Siz o'zbek tilida hamda Rus tilida foydalanuvchiga yordam beruvchi assistant siz."},
+                {"role": "user", "content": prompt},
+            ]
+        )
+        reply = response.choices[0].message.content
+    except Exception as e:
+        reply = f"⚠️ Xatolik yuz berdi: {e}"
+
+    # --- Xabarni xotiraga qo'shish ---
+    memory.append({"role": "user", "content": user_message})
+    memory.append({"role": "assistant", "content": reply})
+    chat_memory[user_id] = memory  # yangilash
+
+    return jsonify({"reply": reply})
+
 
 
 # ==============================================================================

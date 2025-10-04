@@ -1,159 +1,235 @@
 <!DOCTYPE html>
 <html lang="uz">
+
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Online Do'kon - Operator bilan chat</title>
-    <link rel="icon" href="{{ url_for('static', filename='favicon.ico') }}" type="image/x-icon">
-    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
-    <style>
-        /* Chat sahifasi layout */
-        body {
-            height: 100vh;
-            display: flex;
-            flex-direction: column;
-        }
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>Online Do'kon - Operator bilan chat</title>
 
-        .header {
-            flex-shrink: 0;
-            position: sticky;
-            top: 0;
-            z-index: 1000;
-        }
+  <!-- Favicon va CSS -->
+  <link rel="icon" href="{{ url_for('static', filename='favicon.ico') }}" type="image/x-icon">
+  <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
 
-        .chat-container {
-            flex: 1;
-            max-width: 800px;
-            width: 100%;
-            margin: 0 auto;
-            background: #fff;
-            border-radius: 12px 12px 0 0;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
-            display: flex;
-            flex-direction: column;
-            overflow: hidden;
-        }
+  <style>
+    :root {
+      --primary: #4CAF50;
+      --light: #f1f1f1;
+      --dark: #333;
+      --border: #ddd;
+    }
 
-        .chat-messages {
-            flex: 1;
-            padding: 15px;
-            overflow-y: auto;
-        }
+    html,
+    body {
+      height: 100%;
+      margin: 0;
+      display: flex;
+      flex-direction: column;
+      background: #fafafa;
+      overscroll-behavior: contain;
+      font-family: sans-serif;
+    }
 
-        .message {
-            margin: 10px 0;
-            padding: 10px 15px;
-            border-radius: 20px;
-            max-width: 75%;
-            line-height: 1.4;
-            word-wrap: break-word;
-        }
+    /* HEADER */
+    header.header {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      background: #4CAF50;
+      color: #fff;
+      padding: 12px 16px;
+      z-index: 1000;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+    }
 
-        .message.user {
-            background: var(--primary);
-            color: #fff;
-            margin-left: auto;
-            border-bottom-right-radius: 5px;
-        }
+    header.header h1 {
+      margin: 0;
+      font-size: 18px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
 
-        .message.bot {
-            background: var(--light);
-            color: var(--dark);
-            margin-right: auto;
-            border-bottom-left-radius: 5px;
-        }
+    header.header a.btn {
+      color: #fff;
+      text-decoration: none;
+      font-size: 18px;
+    }
 
-        .chat-input {
-            display: flex;
-            border-top: 1px solid var(--border);
-            background: #fff;
-        }
+    /* MAIN CHAT CONTAINER */
+    .chat-container {
+      flex: 1;
+      margin-top: 60px;
+      /* header balandligi */
+      margin-bottom: 60px;
+      /* input balandligi */
+      display: flex;
+      flex-direction: column;
+      max-width: 800px;
+      width: 100%;
+      margin-left: auto;
+      margin-right: auto;
+      background: #fff;
+      border-radius: 0 0 12px 12px;
+      overflow: hidden;
+    }
 
-        .chat-input input {
-            flex: 1;
-            border: none;
-            padding: 15px;
-            font-size: 16px;
-        }
+    .chat-messages {
+      flex: 1;
+      padding: 12px;
+      overflow-y: auto;
+      scroll-behavior: smooth;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      -webkit-overflow-scrolling: touch;
+      /* iOS silliq scroll */
+    }
 
-        .chat-input input:focus {
-            outline: none;
-        }
+    .message {
+      padding: 10px 15px;
+      border-radius: 20px;
+      max-width: 75%;
+      line-height: 1.4;
+      word-wrap: break-word;
+    }
 
-        .chat-input button {
-            background: var(--primary);
-            border: none;
-            color: #fff;
-            padding: 0 20px;
-            cursor: pointer;
-            font-size: 18px;
-            transition: background 0.3s;
-        }
+    .message.user {
+      background: var(--primary);
+      color: #fff;
+      margin-left: auto;
+      border-bottom-right-radius: 5px;
+    }
 
-        .chat-input button:hover {
-            background: #388e3c; /* primary rangning quyuqroq varianti */
-        }
+    .message.bot {
+      background: var(--light);
+      color: var(--dark);
+      margin-right: auto;
+      border-bottom-left-radius: 5px;
+    }
 
-        /* Telefon uchun moslashuv */
-        @media (max-width: 768px) {
-            .chat-container {
-                border-radius: 0;
-                max-width: 100%;
-            }
-            .header h1 {
-                font-size: 16px;
-            }
-        }
-    </style>
+    /* INPUT PANEL */
+    .chat-input {
+      position: fixed;
+      bottom: env(safe-area-inset-bottom, 0);
+      left: 0;
+      right: 0;
+      display: flex;
+      align-items: center;
+      background: #fff;
+      border-top: 1px solid var(--border);
+      padding: 8px 10px;
+      max-width: 800px;
+      margin: 0 auto;
+      z-index: 1000;
+    }
+
+    .chat-input input {
+      flex: 1;
+      padding: 12px 16px;
+      font-size: 16px;
+      border-radius: 30px;
+      border: none;
+      background: #f8f8f8;
+      margin-right: 8px;
+    }
+
+    .chat-input input:focus {
+      outline: none;
+    }
+
+    .chat-input button {
+      background: var(--primary);
+      border: none;
+      color: #fff;
+      padding: 12px 16px;
+      border-radius: 50%;
+      cursor: pointer;
+      font-size: 18px;
+      transition: background 0.3s;
+    }
+
+    .chat-input button:hover {
+      background: #388e3c;
+    }
+
+    /* RESPONSIVE */
+    @media (max-width: 768px) {
+      .chat-container {
+        border-radius: 0;
+      }
+
+      .chat-input input {
+        font-size: 15px;
+      }
+
+      header.header h1 {
+        font-size: 16px;
+      }
+    }
+  </style>
 </head>
+
 <body>
-    <header class="header">
-        <div class="container">
-            <h1><i class="fas fa-headset"></i> Operator bilan Chat</h1>
-            <nav>
-                <a href="{{ url_for('index') }}" class="btnred">
-                    <i class="fas fa-home"></i>
-                </a>
-            </nav>
-        </div>
-    </header>
+  <!-- HEADER -->
+  <header class="header">
+    <h1><i class="fas fa-headset"></i> Operator bilan Chat</h1>
+    <a class="btn" href="{{ url_for('index') }}"><i class="fas fa-home"></i></a>
+  </header>
 
-    <main class="chat-container">
-        <div id="chatMessages" class="chat-messages"></div>
-        <div class="chat-input">
-            <input type="text" id="userInput" placeholder="Savolingizni yozing..." />
-            <button onclick="sendMessage()"><i class="fas fa-paper-plane"></i></button>
-        </div>
-    </main>
+  <!-- CHAT -->
+  <main class="chat-container">
+    <div id="chatMessages" class="chat-messages"></div>
+  </main>
 
-    <script>
-        async function sendMessage() {
-            const input = document.getElementById("userInput");
-            const message = input.value.trim();
-            if (!message) return;
+  <!-- INPUT -->
+  <div class="chat-input">
+    <input type="text" id="userInput" placeholder="Savolingizni yozing..."
+      onkeydown="if(event.key==='Enter' && !event.shiftKey){sendMessage(); event.preventDefault();}" />
+    <button onclick="sendMessage()"><i class="fas fa-paper-plane"></i></button>
+  </div>
 
-            addMessage("user", message);
-            input.value = "";
 
-            const res = await fetch("/chat", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ message }),
-            });
+  <!-- JavaScript -->
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/2.4.2/purify.min.js"></script>
 
-            const data = await res.json();
-            addMessage("bot", data.reply);
-        }
+  <script>
+    async function sendMessage() {
+      const input = document.getElementById("userInput");
+      const message = input.value.trim();
+      if (!message) return;
 
-        function addMessage(sender, text) {
-            const chatMessages = document.getElementById("chatMessages");
-            const msg = document.createElement("div");
-            msg.classList.add("message", sender);
-            msg.innerText = text;
-            chatMessages.appendChild(msg);
-            chatMessages.scrollTop = chatMessages.scrollHeight;
-        }
-    </script>
+      addMessage("user", message);
+      input.value = "";
+
+      const res = await fetch("/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message }),
+      });
+
+      const data = await res.json();
+      addMessage("bot", data.reply);
+    }
+
+    function addMessage(sender, text) {
+      const chatMessages = document.getElementById("chatMessages");
+      const msg = document.createElement("div");
+      msg.classList.add("message", sender);
+
+      // Markdownni HTML ga aylantirish va xavfsizlik
+      msg.innerHTML = DOMPurify.sanitize(marked.parse(text));
+
+      chatMessages.appendChild(msg);
+      chatMessages.scrollTop = chatMessages.scrollHeight;
+    }
+  </script>
+
 </body>
+
 </html>
