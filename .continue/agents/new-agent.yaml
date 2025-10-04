@@ -1,0 +1,23 @@
+name: Local Agent
+version: 1.0.0
+schema: v1
+
+models:
+  - name: gpt-oss-120b (free)
+    provider: openrouter
+    model: openai/gpt-oss-120b:free
+    apiBase: https://openrouter.ai/api/v1
+    apiKey: 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
+    roles:
+      - chat
+
+context:
+  - provider: code
+  - provider: terminal
+  - provider: docs
+  - provider: diff
+  - provider: problem
+  - provider: folder
+  - provider: web
+  - provider: file
+  - provider: codebase
