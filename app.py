@@ -49,11 +49,11 @@ load_dotenv(find_dotenv())  # .env faylidan o'qish
 app = Flask(__name__)
 CORS(app)  # CORS - boshqa domenlardan so'rovlarga ruxsat
 app.secret_key = os.getenv("DATABASE_KEY")
-print(f"Secret Key: {app.secret_key}")
+# print(f"Secret Key: {app.secret_key}")
 
 # === Mistral API sozlamalari ===
 MISTRAL_API_KEY = os.getenv("MISTRAL")
-print(f"Mistral API Key: {MISTRAL_API_KEY}")
+# print(f"Mistral API Key: {MISTRAL_API_KEY}")
 model = "mistral-large-latest"
 client = Mistral(api_key=MISTRAL_API_KEY)
 
