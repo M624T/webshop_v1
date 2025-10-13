@@ -9,9 +9,10 @@
 # Flask va asosiy extensionlar
 from flask import (
     Flask, render_template, request, redirect,
-    url_for, session, jsonify, send_file, abort
+    url_for, session, jsonify, send_file, abort, session
 )
 from flask_cors import CORS
+from flask_session import Session
 from markupsafe import Markup
 from werkzeug.utils import secure_filename
 
@@ -27,6 +28,7 @@ import requests
 from io import BytesIO
 from datetime import datetime
 from mistralai import Mistral
+from uuid import uuid4
 from dotenv import load_dotenv, find_dotenv
 
 # PDF va QR kod uchun kutubxonalar
@@ -49,11 +51,19 @@ load_dotenv(find_dotenv())  # .env faylidan o'qish
 app = Flask(__name__)
 CORS(app)  # CORS - boshqa domenlardan so'rovlarga ruxsat
 app.secret_key = os.getenv("DATABASE_KEY")
-# print(f"Secret Key: {app.secret_key}")
+print(f"Secret Key: {app.secret_key}")
+
+app.config['SESSION_TYPE'] = 'filesystem'  # Faylda saqlansin (sqlite yoki redis ham bo‘lishi mumkin)
+app.config['SESSION_FILE_DIR'] = './sessions'
+app.config['SESSION_PERMANENT'] = False
+app.config['SESSION_USE_SIGNER'] = True
+app.secret_key = os.getenv("DATABASE_KEY")
+
+Session(app)
 
 # === Mistral API sozlamalari ===
 MISTRAL_API_KEY = os.getenv("MISTRAL")
-# print(f"Mistral API Key: {MISTRAL_API_KEY}")
+print(f"Mistral API Key: {MISTRAL_API_KEY}")
 model = "mistral-large-latest"
 client = Mistral(api_key=MISTRAL_API_KEY)
 
@@ -384,47 +394,42 @@ def success(order_id):
 
 @app.route('/download_receipt/<int:order_id>')
 def download_receipt(order_id):
-    """PDF chek yuklab olish"""
+    """PDF chek — yumshoq spacing, chiroyli jadval va dinamik uzunlik bilan"""
     requested_font = request.args.get('font', 'DejaVuSans')
     font_name = requested_font if requested_font in REGISTERED_FONTS else 'DejaVuSans'
-    font_size = 8  # O'zgartirilgan font o'lchami
+    font_size = 7  # optimal ko‘rinish uchun
+
     conn = get_db_connection()
     order = conn.execute('SELECT * FROM orders WHERE id = ?', (order_id,)).fetchone()
     if not order:
         conn.close()
         return abort(404, "Order not found")
-    
-    # Mahsulotlarni parsing qilish
+
+    # === Mahsulotlarni parsing qilish ===
     raw_products = order['products'] or ''
     parsed = re.findall(r'\(#(\d+)\s+(.*?)\s+x\s+(\d+)\)', raw_products)
     items = []
     if parsed:
         for pid, name, qty in parsed:
             prow = conn.execute('SELECT price FROM products WHERE id = ?', (int(pid),)).fetchone()
-            price = int(prow['price']) if prow and prow['price'] else 0  # None o'rniga 0
-            items.append({
-                'id': pid,
-                'name': name.strip(),
-                'qty': int(qty),
-                'price': price
-            })
+            price = int(prow['price']) if prow and prow['price'] else 0
+            items.append({'id': pid, 'name': name.strip(), 'qty': int(qty), 'price': price})
     else:
-        parts = [p.strip() for p in re.split(r',\s*|\n', raw_products) if p.strip()]
-        for p in parts:
+        for p in [x.strip() for x in re.split(r',|\n', raw_products) if x.strip()]:
             items.append({'id': '', 'name': p, 'qty': '', 'price': 0})
     conn.close()
-    
-    # PDF parametrlari
+
+    # === PDF sozlamalari ===
     page_width = 80 * mm
-    left_margin = 6 * mm
-    right_margin = 6 * mm
+    left_margin = 5 * mm
+    right_margin = 5 * mm
     content_width = page_width - left_margin - right_margin
-    
+
     def wrap_text(text, font, size, max_width):
-        words = text.split()
-        lines, cur = [], ""
+        """So‘zni qatorlarga ajratish"""
+        words, lines, cur = text.split(), [], ""
         for w in words:
-            test = cur + (" " if cur else "") + w
+            test = (cur + " " + w).strip()
             if stringWidth(test, font, size) <= max_width:
                 cur = test
             else:
@@ -433,165 +438,136 @@ def download_receipt(order_id):
                 cur = w
         if cur:
             lines.append(cur)
-        return lines if lines else [""]
-    
-    # Chek balandligi
-    line_height = font_size * 1.3
+        return lines or [""]
+
+    # === Dinamik balandlikni hisoblash ===
+    line_height = font_size * 1.75  # kengroq qator oralig‘i (oldingidan yumshoqroq)
+    qr_size = 45 * mm
+    top_margin = 8 * mm
+    bottom_margin = 5 * mm
+    col_gap = 32 * mm
+
     lines_count = 0
     header_lines = [
-        "ONLINE DO'KON / ОNLINE МАГАЗИН",
+        "ONLINE DO'KON / ОНЛАЙН МАГАЗИН",
         f"Check / Чек: {order['id']}",
         f"Sana / Дата: {datetime.now().strftime('%Y-%m-%d %H:%M')}"
     ]
-    lines_count += sum(len(wrap_text(l, font_name, font_size+1, content_width - 10*mm)) for l in header_lines)  # Kichikroq va torroq joy
-    
     customer_lines = [
         f"Ism / Имя: {order['name']}",
         f"Tel / Тел: {order['phone']}",
         f"Manzil / Адрес: {order['address'] or ''}"
     ]
+
+    lines_count += sum(len(wrap_text(l, font_name, font_size + 1, content_width)) for l in header_lines)
     lines_count += sum(len(wrap_text(l, font_name, font_size, content_width)) for l in customer_lines)
-    
-    for i, it in enumerate(items):
-        lines = wrap_text(it['name'], font_name, font_size, content_width-(25*mm))  # Ko'proq joy subtotal uchun
-        lines_count += len(lines) + 2  # +1 for subtotal, +1 for separator (faqat oxirgisiz)
-        if i < len(items) - 1:  # Oxirgi mahsulotdan keyin separator qo'shmaymiz
-            lines_count += 1  # Separator uchun qo'shimcha
-    
-    # Jami uchun 2 qator (galochka va matn)
-    lines_count += 2
-    
-    # QR tagida bitta qator (lekin wrapped bo'lishi mumkin, shuning uchun +2)
-    lines_count += 2
-    
-    qr_size = 45 * mm  # Biroz kattaroq QR
-    top_margin = 8 * mm  # Ko'proq tepa margin
-    bottom_margin = 15 * mm  # Pastki marginni oshirish
+    for it in items:
+        name_lines = wrap_text(it['name'], font_name, font_size, content_width - col_gap - 6)
+        lines_count += len(name_lines) + 2  # nomi + narx + separator
+
+    lines_count += 8  # jami, qr, rahmat va bufer
+
     content_height = lines_count * line_height
-    height_pts = max(top_margin + content_height + qr_size + bottom_margin + 30, 160*mm)  # Min balandlikni oshirish va bufer
-    
-    # PDF yaratish
+    height_pts = max(top_margin + content_height + qr_size + bottom_margin, 160 * mm)
+
+    # === PDF yaratish ===
     buffer = BytesIO()
     c = canvas.Canvas(buffer, pagesize=(page_width, height_pts))
-    
     y = height_pts - top_margin
-    
-    # Header - qora va markazlangan
-    c.setFont(font_name, font_size+1)
+
+    # === Header ===
+    c.setFont(font_name, font_size + 1)
     for hl in header_lines:
-        wrapped = wrap_text(hl, font_name, font_size+1, content_width - 10*mm)  # Torroq joy
-        for line in wrapped:
-            c.drawCentredString(page_width/2, y, line)
-            y -= line_height * 1.1
-    y -= 5
-    c.setFont(font_name, font_size)
-    
-    # Mijoz ma'lumotlari
+        for line in wrap_text(hl, font_name, font_size + 1, content_width):
+            c.drawCentredString(page_width / 2, y, line)
+            y -= line_height * 1.05
+    y -= 4
+
+    # === Mijoz ma’lumotlari ===
     c.setFont(font_name, font_size)
     for cl in customer_lines:
         for w in wrap_text(cl, font_name, font_size, content_width):
             c.drawString(left_margin, y, w)
             y -= line_height
-    y -= 5
-    c.setStrokeColor(black)
-    c.setLineWidth(1)
-    c.line(left_margin, y, page_width-right_margin, y)
-    y -= line_height * 1.5
-    c.setLineWidth(0.5)
-    
-    # Mahsulotlar sarlavhasi - qalinroq
-    c.setFont(font_name, font_size + 1)
-    c.drawString(left_margin, y, "Nomi / Товар")
-    c.drawRightString(page_width-right_margin, y, "Soni x Narx = Jami")
-    y -= line_height * 1.2
-    c.setFont(font_name, font_size)
-    
-    # Mahsulotlar
-    for i, it in enumerate(items):
-        name_lines = wrap_text(it['name'], font_name, font_size, content_width-(30*mm))
+    y -= 6
+
+    # === Jadval sarlavhasi ===
+    dash_line = "-" * int(content_width / stringWidth("-", font_name, font_size))
+    c.drawString(left_margin, y, dash_line)
+    y -= line_height
+    c.drawString(left_margin + 1, y, "l  Nomi / Товар")
+    c.drawRightString(page_width - right_margin - 1, y, "Soni x Narx = Jami  l")
+    y -= line_height
+    c.drawString(left_margin, y, dash_line)
+    y -= line_height * 0.8
+
+    # === Jadval satrlari ===
+    for it in items:
+        qty, price = it.get('qty', 0), it.get('price', 0)
+        subtotal = qty * price
+        total_text = f"{price:,}" if qty == 1 else (f"{qty} x {price:,} = {subtotal:,}" if qty and price else "")
+
+        name_lines = wrap_text(it['name'], font_name, font_size, content_width - col_gap - 6)
         for j, nl in enumerate(name_lines):
-            c.drawString(left_margin, y, nl)
+            c.drawString(left_margin + 1, y, f"l  {nl}")
             if j == 0:
-                qty = str(it['qty']) if it.get('qty') != '' else ''
-                price = f"{int(it['price']):,}" if it.get('price') else ''
-                subtotal = it['qty'] * it['price'] if it.get('qty') != '' and it.get('price') else 0
-                total_line = f"{qty} x {price} = {subtotal:,}" if price and qty else (f"{qty} x {price}" if price or qty else "")
-                c.drawRightString(page_width-right_margin, y, total_line if total_line else "")
+                c.drawRightString(page_width - right_margin - 1, y, f"{total_text}  l")
+            else:
+                c.drawRightString(page_width - right_margin - 1, y, "  l")
             y -= line_height
-        y -= line_height / 2  # Bir oz spacing nomi va separator orasida
-        
-        if i < len(items) - 1:  # Oxirgi mahsulotdan keyin separator qo'shmaymiz
-            # Har bir mahsulotdan keyin separator qo'shish ("-----" kabi chiziq)
-            c.setFont(font_name, font_size - 1)  # Kichikroq font
-            dash_width = stringWidth("-", font_name, font_size - 1)
-            num_dashes = int(content_width / dash_width)  # Kenglikka mos
-            separator_line = "-" * num_dashes  # "----------" dan uzunroq bo'ladi
-            c.drawString(left_margin, y, separator_line)
-            c.setFont(font_name, font_size)  # Fontni qaytarish
-            y -= line_height  # Kattaroq spacing separator dan keyin, mahsulotlar orasidagi masofa uchun
-            
-            # Har bir mahsulot blokidan keyin qo'shimcha spacing birxil masofa uchun
-            y -= line_height / 2
-        else:
-            y -= line_height  # Oxirgi mahsulotdan keyin oddiy spacing
-    
-    c.setStrokeColor(black)
-    c.setLineWidth(1.5)
-    c.line(left_margin, y, page_width-right_margin, y)
-    y -= line_height * 2
-    
-    # Jami summa - qalin, dumaloq galochka qo'shildi
-    c.setFont(font_name, font_size+2)
-    # check_symbol = "✔"  # Dumaloq galochka
-    # c.drawString(left_margin + 2*mm, y, check_symbol)  # Chap tomonda galochka
-    c.drawString(left_margin + 8*mm, y, f"JAMI / ИТОГО: {int(order['total_price']):,} so'm")
+        c.drawString(left_margin, y, dash_line)
+        y -= line_height * 0.8  # bo‘sh joy (chiziqdan keyin)
+
+    # === Jami ===
+    y -= 5
+    c.setFont(font_name, font_size + 2)
+    c.drawString(left_margin + 8 * mm, y, f"JAMI / ИТОГО: {int(order['total_price']):,} so'm")
     y -= line_height * 1.8
     c.setFont(font_name, font_size)
-    
-    y -= 5  # QR oldidan bo'sh joy
-    
-    # QR kod (o'zgarmas, lekin joylashuvi yaxshilandi)
+
+    # === QR kod ===
     qr_payload = {
         "order": order['id'],
         "name": order['name'],
         "items": [{"id": it['id'], "qty": it['qty']} for it in items if it['id']],
         "total": int(order['total_price'])
     }
-    raw_data = json.dumps(qr_payload)
-    encoded = base64.urlsafe_b64encode(raw_data.encode()).decode()
+    encoded = base64.urlsafe_b64encode(json.dumps(qr_payload).encode()).decode()
     qr_img = qrcode.make(encoded)
     qr_buf = BytesIO()
     qr_img.save(qr_buf, format="PNG")
-    qr_buf.seek(0)
     qr_reader = ImageReader(qr_buf)
-    
     qr_x = (page_width - qr_size) / 2
-    qr_y = y - qr_size - 2 * mm  # Yuqoridan joylashtirish
+    qr_y = y - qr_size - 3
     c.drawImage(qr_reader, qr_x, qr_y, width=qr_size, height=qr_size)
-    y = qr_y - 5
-    
-    # QR tagida oddiy rahmat matni
-    c.setFont(font_name, font_size)
-    thanks_text = "Buyurtma berganingiz uchun rahmat! / Спасибо за покупку!"
-    wrapped_thanks = wrap_text(thanks_text, font_name, font_size, content_width - 10*mm)  # Joy SVG uchun
+    y = qr_y - 6
 
-    for line in wrapped_thanks:
+    # === Rahmat matni ===
+    thanks = "Buyurtma berganingiz uchun rahmat! / Спасибо за покупку!"
+    for line in wrap_text(thanks, font_name, font_size, content_width - 10 * mm):
         c.drawCentredString(page_width / 2, y, line)
-        y -= line_height  # ✅ Har bir qator yozilganda pastga tushirish
+        y -= line_height
 
-    y -= line_height / 2  # ✅ Qo'shimcha spacing oxirida
+    y -= 1.5 * mm  # pastda kichik oraliq
 
-    # PDF tugatish
+    # === Yakunlash ===
     c.showPage()
     c.save()
     buffer.seek(0)
 
-    return send_file(
+    response = send_file(
         buffer,
         as_attachment=True,
         download_name=f"chek_{order_id}.pdf",
         mimetype="application/pdf"
     )
+    response.headers.update({
+        "X-Content-Type-Options": "nosniff",
+        "Content-Security-Policy": "sandbox",
+        "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
+        "Pragma": "no-cache"
+    })
+    return response
 
 
 # ==============================================================================
@@ -723,7 +699,7 @@ def admin_edit_product(product_id):
                 file.save(filepath)
                 desc_mapping[file.filename] = secure_name
         
-        # Description ichidagi {original} ni {unique} ga almashtirish
+        # description ichidagi {original} ni {unique} ga almashtirish
         for orig, unique in desc_mapping.items():
             description = description.replace(f'{{{orig}}}', f'{{{unique}}}')
         
@@ -793,116 +769,134 @@ def admin_delete_product(product_id):
     conn.close()
     return redirect(url_for('admin_add_product'))
 
-
 # ==============================================================================
-# CHAT - AI Support
+# CHATBOT - AI Chatbot Integration
 # ==============================================================================
 
 @app.route('/chat')
 def chat_ui():
-    """Chat sahifasi"""
+    # Foydalanuvchi uchun yagona sessiya UUID yaratish
+    if "user_uuid" not in session:
+        session["user_uuid"] = str(uuid4())
+        session["user_name"] = "Anonim"
+
     return render_template('chat.html')
 
-# =============================================================================
-# === Chat API yo'li ===
-# =============================================================================
-
-# Har bir foydalanuvchi uchun xotira saqlash (simple in-memory)
-chat_memory = {}  # {user_id: [{"role": "user"/"assistant", "content": "..."}]}
 
 @app.route('/chat', methods=['POST'])
 def chat():
     data = request.get_json()
     user_message = data.get("message", "").strip()
-    user_id = data.get("user_id", "anonymous")  # foydalanuvchi ID, anonim bo'lsa default
+
+    # Sessiyadagi ma'lumotlarni olish
+    user_uuid = session.get("user_uuid", str(uuid4()))
+    user_name = session.get("user_name", "Anonim")
 
     if not user_message:
-        return jsonify({"reply": "❗ Xabar bo'sh bo'lishi mumkin emas."})
+        return jsonify({"reply": "❗ Xabar bo'sh bo'lishi mumkin emas.", "user_uuid": user_uuid})
 
     conn = get_db_connection()
     cursor = conn.cursor()
 
-    # Mahsulotlar dictionary
-    cursor.execute("SELECT id, name, price FROM products")
+    # === Mahsulotlar ro'yxatini olish ===
+    cursor.execute("SELECT id, name, price, description, stock FROM products")
     product_rows = cursor.fetchall()
-    products_dict = {str(r['id']): {'name': r['name'], 'price': r['price']} for r in product_rows}
 
-    # Buyurtmalar
+    # Barcha mahsulotlarni JSON ko‘rinishda saqlaymiz
+    products_info = []
+    for r in product_rows:
+        products_info.append({
+            "name": r["name"],
+            "price": r["price"],
+            "description": r["description"],
+            "stock": r["stock"]
+        })
+
+    # Model uchun soddalashtirilgan matn
+    products_context = "\n".join([
+        f"- id: {r['id']} | nomi: {r['name']} | narxi: {r['price']} so'm | tavsif: {r['description']} | mavjud: {r['stock']} dona"
+        for r in product_rows
+    ])
+
+    # === Avvalgi xabarlar ===
     cursor.execute("""
-        SELECT id, name, phone, address, location, products, total_price, data_add, status 
-        FROM orders
-    """)
-    orders = cursor.fetchall()
+        SELECT role, content FROM chat_message 
+        WHERE user_uuid=? ORDER BY created_at ASC
+    """, (user_uuid,))
+    memory_rows = cursor.fetchall()
 
-    context_text = ""
-    if orders:
-        context_text += "📦 **Quyidagi buyurtmalar bazada mavjud:**\n\n"
-        for r in orders:
-            products_text = ""
-            matches = re.findall(r"#(\d+)\s(.+?)\s+x\s+(\d+)", r['products'])
-            for pid, pname, pqty in matches:
-                pid = pid.strip()
-                pname = pname.strip()
-                pqty = int(pqty)
-                price = products_dict.get(pid, {}).get('price', 'Noma’lum')
-                products_text += f"- **{pname}** – {pqty} ta ({price} so'm)\n"
-
-            context_text += (
-                f"🧾 **ID:** {r['id']}\n"
-                f"👤 **Mijoz:** {r['name']}\n"
-                f"📞 **Telefon:** {r['phone']}\n"
-                f"📍 **Manzil:** {r['address']}\n"
-                f"{products_text}"
-                f"💰 **Umumiy narx:** {r['total_price']} so'm\n"
-                f"🗓 **Buyurtma berilgan sana:** {r['data_add'] or 'belgilanmagan'}\n"
-                f"📦 **Holat:** {r['status']}\n\n"
-            )
+    # === Xotirani qisqartirish ===
+    if len(memory_rows) > 6:
+        summary_text = "Avvalgi suhbat xulosasi: "
+        summary_text += " ".join([m["content"] for m in memory_rows[-6:]])[:400]
     else:
-        context_text += "Hech qanday buyurtma topilmadi.\n\n"
+        summary_text = "".join([f"{m['role'].capitalize()}: {m['content']}\n" for m in memory_rows])
 
-    conn.close()
-
-    # --- Xotira uchun eski xabarlarni olish ---
-    memory = chat_memory.get(user_id, [])
-    # Oxirgi 3 ta xabarni olish
-    last_messages = memory[-6:] if memory else [] # 6 ta xabar es
-
-    # AI prompt
+    # === AI uchun PROMPT ===
     prompt = f"""
-Siz onlayn do'konning aqlli operatorisiz.
-Foydalanuvchi bilan o'zbek tilida yoki rus tilida tabiiy, samimiy ohangda suhbatlashing foydalanuvchi qaysi tilda so'rasa, o'sha tilda javob bering.
-Avvalgi suhbatlarni eslab qoling:
+    Siz 'DonoAI' onlayn do'kon operatorisiz. 
+    Siz hushmuomila va do'stona yordamchisiz. 
+    Foydalanuvchiga qisqa, aniq va foydali javob bering.
+    Foydalanuvchi o'zbek yoki rus tilida so'raydi — siz ham o'sha tilda javob bering.
+    Siz quyidagi mahsulotlar haqida ma'lumot bera olasiz:
 
-{''.join([f"{m['role'].capitalize()}: {m['content']}\n" for m in last_messages])}
+    {products_context}
 
-📚 **Kontekst:**
-{context_text}
+    📌 Qoidalar:
+    - Foydalanuvchi faqat mavjud mahsulot haqida so‘rasa, nomi, narxi va tavsifini qisqa ayting.
+    - Agar foydalanuvchi “bor-mi?”, “nechta bor?” desa — `stock` sonini ayting (masalan: “do'konimizada 3 dona qolgan ekan”).
+    - Agar foydalanuvchi mahsulot haqida so‘rasa, `id`ni yuqoridagi ro‘yxatdan topib, quyidagi formatda tugma yarating:
+    <button class='chat-btn' data-url='/product/9'>Mahsulotni ko‘rish</button>
+    - Masalan: Agar foydalanuvchi “iPhone 15” desa, siz quyidagicha javob bering:
+    “iPhone 15 narxi 12,500,000 so‘m. <button class='chat-btn' data-url='/product/9'>Mahsulotni ko‘rish</button>”
+    - Tugmani faqat kerakli joyda ishlating, boshqa joyda emas.
+    - Agar mahsulot bazada bo‘lmasa, “Bunday mahsulot bizda yo‘q.” deb ayting.
+    - Javobingizni tabiiy, qisqa va tushunarli tarzda yozing.
+    - Keraksiz matnlar yozmang.
 
-🧠 **Foydalanuvchi so'rovi:**
-{user_message}
+    💬 Avvalgi suhbat:
+    {summary_text}
 
-💬 **Javob (Markdown format bo'lmasin, qisqa va tabiiy ohangda. Ortiqcha javob bermang. Faqat kerakli savolga javob bering):**
+    🧠 Foydalanuvchi so‘rovi:
+    {user_message}
     """
 
+    # === AI javobini olish ===
     try:
         response = client.chat.complete(
             model=model,
             messages=[
-                {"role": "system", "content": "Siz o'zbek tilida hamda Rus tilida foydalanuvchiga yordam beruvchi assistant siz."},
+                {"role": "system", "content": (
+                "Siz DonoAI nomli aqlli do‘kon operatorisiz. "
+                "Siz foydalanuvchi qaysi tilda so‘rasa — o‘sha tilda (o‘zbek yoki ruscha) javob bering. "
+                "Agar mahsulot bazada mavjud bo‘lsa, uning nomi, narxi va tavsifini qisqa ayting. "
+                "Agar foydalanuvchi mahsulotni ko'rsatishni so'rasa, so‘ngra HTML tugma sifatida link qo‘shing: "
+                "<button class='chat-btn' data-url='/product/9'>Mahsulotni ko‘rish</button>. "
+                "Faqat mavjud mahsulotlarga shunday tugma yarating."
+            )},
                 {"role": "user", "content": prompt},
-            ]
+            ],
+            temperature=0.4,
+            max_tokens=512
         )
-        reply = response.choices[0].message.content
+        reply = response.choices[0].message.content.strip()
     except Exception as e:
         reply = f"⚠️ Xatolik yuz berdi: {e}"
 
-    # --- Xabarni xotiraga qo'shish ---
-    memory.append({"role": "user", "content": user_message})
-    memory.append({"role": "assistant", "content": reply})
-    chat_memory[user_id] = memory  # yangilash
+    # === Chatni bazaga yozish ===
+    cursor.execute("""
+        INSERT INTO chat_message (user_uuid, user_name, role, content) 
+        VALUES (?, ?, ?, ?)
+    """, (user_uuid, user_name, "user", user_message))
+    cursor.execute("""
+        INSERT INTO chat_message (user_uuid, user_name, role, content) 
+        VALUES (?, ?, ?, ?)
+    """, (user_uuid, user_name, "assistant", reply))
 
-    return jsonify({"reply": reply})
+    conn.commit()
+    conn.close()
 
+    return jsonify({"reply": reply, "user_uuid": user_uuid})
 
 
 # ==============================================================================

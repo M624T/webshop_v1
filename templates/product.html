@@ -10,69 +10,120 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
 
     <style>
-        /* 🔑 Asosiy container */
-        .product-detail {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 20px;
-            align-items: start;
+        /* === ASOSIY === */
+        :root {
+            --primary: #4CAF50;
+            --secondary: #FF9800;
+            --light: #f5f5f5;
+            --dark: #333;
+            --border: #e0e0e0;
         }
 
-        /* 📱 Telefon uchun moslash */
-        @media (max-width: 768px) {
-            .product-detail {
-                grid-template-columns: 1fr;
-                /* ✅ 1 ustun */
-            }
-
-            .product-gallery {
-                position: static !important;
-                /* sticky olib tashlanadi */
-                max-width: 100%;
-            }
-
-            .product-info h1 {
-                font-size: 20px;
-            }
-
-            .price {
-                font-size: 18px;
-            }
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
         }
 
-        nav.bottom-nav {
+        body {
+            font-family: 'Segoe UI', Tahoma, sans-serif;
+            line-height: 1.6;
+            color: var(--dark);
+            background: var(--light);
+            padding-bottom: 70px;
+            /* pastki menyu uchun joy */
+            padding-top: 64px;
+        }
+
+        /* === HEADER === */
+        .header {
+            background: var(--primary);
+            color: #fff;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+            position: fixed;
+            left: 0;
+            right: 0;
+            top: 0;
+            z-index: 100;
+            padding: 15px 0;
+        }
+
+        .header .container {
+            max-width: 2400px;
+            margin: auto;
+            padding: 0 15px;
             display: flex;
-            justify-content: center;
-            /* markazda joylashsin */
+            justify-content: space-between;
+            gap: 40px;
             align-items: center;
-            gap: 12px;
-            /* tugmalar orasida masofa */
-            margin-top: 15px;
             flex-wrap: wrap;
-            /* kichik ekranlarda joylashishi uchun */
         }
 
-        nav.bottom-nav .btn {
-            flex: none;
-            /* tugmalar tortilib ketmasin */
+        .header h1 {
+            font-size: 1.4rem;
+            display: flex;
+            align-items: center;
+            gap: 8px;
         }
 
-        @media (max-width: 480px) {
-            nav.bottom-nav {
-                gap: 8px;
-            }
-
-            nav.bottom-nav .btn {
-                font-size: 14px;
-                padding: 10px 20px;
-            }
+        /* === PASTKI MENYU === */
+        .bottom-nav {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            background: var(--primary);
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+            padding: 10px 0 calc(10px + env(safe-area-inset-bottom));
+            box-shadow: 0 -2px 6px rgba(0, 0, 0, 0.1);
+            z-index: 999;
         }
 
+        .bottom-nav a {
+            text-decoration: none;
+            color: white;
+            font-size: 13px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            transition: 0.3s;
+        }
+
+        .bottom-nav a i {
+            font-size: 20px;
+            margin-bottom: 3px;
+        }
+
+        .bottom-nav a.active {
+            color: var(--secondary);
+        }
+
+        .bottom-nav a:hover {
+            transform: translateY(-2px);
+            opacity: 0.9;
+        }
+
+        /* === KONTENT KONTEYNER === */
+        .container {
+            max-width: 1200px;
+            margin: 20px auto;
+            padding: 0 15px;
+        }
+
+        .product-detail {
+            display: flex;
+            flex-direction: column;
+            gap: 25px;
+        }
+
+        /* === GALEREYA === */
         .product-gallery {
-            max-width: 500px;
-            align-self: start;
-            position: sticky;
-            top: 20px;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
         }
 
         .slider-frame {
@@ -80,7 +131,8 @@
             overflow-x: auto;
             scroll-snap-type: x mandatory;
             scroll-behavior: smooth;
-            gap: 15px;
+            gap: 10px;
+            width: 100%;
         }
 
         .slide {
@@ -91,57 +143,65 @@
             align-items: center;
         }
 
-        .image-box video {
+        .image-box {
             width: 100%;
-            height: 100%;
-            object-fit: contain;
-            /* videoni to'g'ri ko'rsatadi */
-            border-radius: 6px;
-            background: #000;
-            /* bo'sh joy qora fon bo'lsin */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+            background: transparent;
+            border-radius: 10px;
         }
 
         .image-box img,
         .image-box video {
-            max-width: 100%;
-            max-height: 100%;
-        }
-
-        .image-box {
             width: 100%;
-            aspect-ratio: 3 / 4;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            background: #f5f5f5;
-            border-radius: 8px;
-            overflow: hidden;
-        }
-
-        .product-image {
-            width: 100%;
-            height: 100%;
+            height: auto;
             object-fit: contain;
-            cursor: pointer;
-            transition: transform 0.3s ease;
+            object-position: center;
+            display: block;
+            background: transparent;
+            max-height: 90vh;
         }
 
-        .product-image:hover {
-            transform: scale(1.05);
+        /* === MAHSULOT MA'LUMOTI === */
+        .product-info {
+            flex: 1;
+            text-align: left;
         }
 
         .product-info h1 {
-            font-size: 22px;
-            margin-bottom: 15px;
+            font-size: 24px;
+            margin-bottom: 10px;
+            color: var(--dark);
         }
 
         .price {
-            font-size: 24px;
-            color: #4CAF50;
-            font-weight: bold;
-            margin: 15px 0;
+            font-size: 22px;
+            color: var(--secondary);
+            font-weight: 700;
+            margin-bottom: 15px;
         }
 
+        .btn-main {
+            background: linear-gradient(135deg, var(--primary), #2e7d32);
+            color: #fff;
+            padding: 12px 28px;
+            border: none;
+            border-radius: 25px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: 0.3s ease;
+            box-shadow: 0px 2px 5px rgba(0, 0, 0, 0.3);
+        }
+
+        .btn-main:hover {
+            background: linear-gradient(135deg, #43a047, #1b5e20);
+            transform: translateY(-2px);
+        }
+
+        /* === TAVSIF === */
         .description-wrap {
             overflow: hidden;
             max-height: 0;
@@ -152,35 +212,13 @@
         .description {
             line-height: 1.8;
             padding: 15px;
-            background: #fafafa;
+            background: #fff;
             border-radius: 10px;
-            border: 1px solid #ddd;
-            word-break: break-word;
+            border: 1px solid var(--border);
             white-space: pre-line;
-            /* ✅ matn yangi qatordan chiqadi */
         }
 
-        .btn {
-            display: ;
-            padding: 12px 28px;
-            background: linear-gradient(135deg, #4CAF50, #2e7d32);
-            color: #fff;
-            border: none;
-            border-radius: 25px;
-            font-size: 16px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            text-align: center;
-            box-shadow: 0px 0px 5px 1px #000000;
-        }
-
-        .btn:hover {
-            background: linear-gradient(135deg, #43a047, #1b5e20);
-            transform: translateY(-2px);
-            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.2);
-        }
-
+        /* === MODAL === */
         .modal {
             display: none;
             position: fixed;
@@ -206,13 +244,63 @@
             position: absolute;
             top: 20px;
             right: 30px;
-            color: #a5a5a5;
+            color: #ccc;
             font-size: 35px;
             font-weight: bold;
             cursor: pointer;
-            z-index: 1000;
+        }
+
+        /* === RESPONSIVE === */
+        @media (max-width: 768px) {
+            .product-detail {
+                flex-direction: column;
+            }
+
+            .product-info h1 {
+                font-size: 20px;
+            }
+
+            .price {
+                font-size: 18px;
+            }
+
+            .header h1 {
+                font-size: 1.2rem;
+            }
+
+            .bottom-nav a {
+                font-size: 12px;
+            }
+
+            .bottom-nav a i {
+                font-size: 18px;
+            }
+        }
+
+        @media (min-width: 1024px) {
+            .product-detail {
+                flex-direction: row;
+                align-items: flex-start;
+            }
+
+            .product-gallery {
+                max-width: 50%;
+                position: sticky;
+                top: 80px;
+            }
+
+            .image-box {
+                width: 100%;
+                max-width: 600px;
+                margin: 0 auto;
+            }
+
+            .product-info {
+                padding: 0 20px;
+            }
         }
     </style>
+
 </head>
 
 <body>
@@ -220,14 +308,13 @@
         <div class="container">
             <h1><i class="fas fa-store"></i> Online Do'kon</h1>
             <nav class="bottom-nav">
-                <a href="{{ url_for('index') }}" class="btn">
-                    <i class="fas fa-home"></i>
+                <a href="{{ url_for('index') }}" class="btn"><i class="fas fa-home"></i></a>
+                <a href="{{ url_for('chat_ui') }}" class="btn" title="Operator bilan aloqa">
+                    <i class="fas fa-headset"></i>
                 </a>
                 <form action="{{ url_for('add_to_cart', product_id=product.id) }}" method="POST">
                     <input type="hidden" name="quantity" value="1">
-                    <button type="submit" class="btn">
-                        <i class="fas fa-cart-plus"></i> Savatga qo'shish
-                    </button>
+                    <button type="submit" class="btn"><i class="fas fa-cart-plus"></i> Savatga qo'shish</button>
                 </form>
             </nav>
         </div>
@@ -235,7 +322,6 @@
 
     <main class="container">
         <div class="product-detail">
-            <!-- 📷 Galereya -->
             <div class="product-gallery">
                 <div class="slider-frame">
                     {% set images = (product.image.split(',') if product.image else []) %}
@@ -247,8 +333,7 @@
                     {% if v %}
                     <div class="slide">
                         <div class="image-box">
-                            <video src="{{ url_for('static', filename='images/' + v) }}" controls
-                                class="product-video"></video>
+                            <video src="{{ url_for('static', filename='images/' + v) }}" controls></video>
                         </div>
                     </div>
                     {% endif %}
@@ -275,12 +360,11 @@
                 </div>
             </div>
 
-            <!-- ℹ️ Mahsulot ma’lumotlari -->
             <div class="product-info">
                 <h1>{{ product.name }}</h1>
                 <p class="price">{{ "{:,.0f}".format(product.price|int) }} so'm</p>
 
-                <button id="toggleDescBtn" class="btn" style="margin-top: 20px;">
+                <button id="toggleDescBtn" class="btn-main" style="margin-top: 20px;">
                     <i class="fas fa-info-circle"></i> Tavsifni ko‘rish
                 </button>
 
@@ -293,7 +377,6 @@
         </div>
     </main>
 
-    <!-- 🖼 Modal -->
     <div id="imageModal" class="modal">
         <span class="close">&times;</span>
         <img class="modal-content" id="modalImage">
@@ -306,7 +389,7 @@
     </footer>
 
     <script>
-        // 📜 Tavsifni ochib-yopish
+        // Tavsifni ochib-yopish
         const toggleBtn = document.getElementById("toggleDescBtn");
         const wrap = document.getElementById("descWrap");
 
@@ -320,7 +403,7 @@
             }
         });
 
-        // 🖼 Rasmni kattalashtirish
+        // Modal rasm ko‘rish
         const modal = document.getElementById("imageModal");
         const modalImg = document.getElementById("modalImage");
         const closeBtn = document.querySelector(".close");

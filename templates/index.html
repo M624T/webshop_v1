@@ -2,149 +2,235 @@
 <html lang="uz">
 
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Online Do'kon - Bosh sahifa</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Online Do'kon - Bosh sahifa</title>
 
-    <link rel="icon" href="{{ url_for('static', filename='favicon.ico') }}" type="image/x-icon">
-    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+  <link rel="icon" href="{{ url_for('static', filename='favicon.ico') }}" type="image/x-icon">
+  <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
 
-    <style>
-        /* === PRELOADER === */
-        #preloader {position: fixed; top:0; left:0; width:100%; height:100%; background:linear-gradient(135deg,#4CAF50,#2e7d32); display:flex; justify-content:center; align-items:center; flex-direction:column; z-index:9999; transition:opacity 0.5s ease;}
-        .loader {width:70px;height:70px; border:8px solid #fff; border-top:8px solid #ff9800; border-radius:50%; animation:spin 1s linear infinite; margin-bottom:15px;}
-        @keyframes spin {0%{transform:rotate(0deg);}100%{transform:rotate(360deg);}}
-        body.loading main, body.loading header, body.loading footer {visibility:hidden;}
-        /* === TOAST XABAR === */
-        #toast {position:fixed; bottom:30px; left:50%; transform:translateX(-50%); background:#333; color:#fff; padding:10px 20px; border-radius:25px; opacity:0; pointer-events:none; transition:opacity 0.5s ease; z-index:9999; font-family:sans-serif;}
-    </style>
+  <style>
+    /* === PRELOADER (3D KUB) === */
+    #preloader {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(135deg, #4CAF50, #2e7d32);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      flex-direction: column;
+      z-index: 9999;
+      transition: opacity 0.7s ease;
+    }
+
+    .cube {
+      width: 60px;
+      height: 60px;
+      position: relative;
+      transform-style: preserve-3d;
+      animation: rotate 2s linear infinite;
+    }
+
+    .cube div {
+      position: absolute;
+      width: 60px;
+      height: 60px;
+      background: rgba(255, 255, 255, 0.25);
+      border: 2px solid #fff;
+      border-radius: 6px;
+      box-shadow: 0 0 12px rgba(255, 255, 255, 0.5);
+    }
+
+    .front  { transform: translateZ(30px); }
+    .back   { transform: rotateY(180deg) translateZ(30px); }
+    .right  { transform: rotateY(90deg) translateZ(30px); }
+    .left   { transform: rotateY(-90deg) translateZ(30px); }
+    .top    { transform: rotateX(90deg) translateZ(30px); }
+    .bottom { transform: rotateX(-90deg) translateZ(30px); }
+
+    @keyframes rotate {
+      0%   { transform: rotateX(0deg) rotateY(0deg); }
+      100% { transform: rotateX(360deg) rotateY(360deg); }
+    }
+
+    .loading-text {
+      color: #fff;
+      font-family: sans-serif;
+      font-size: 18px;
+      margin-top: 20px;
+      letter-spacing: 1px;
+      animation: fadeText 2s infinite ease-in-out;
+    }
+
+    @keyframes fadeText {
+      0%, 100% { opacity: 0.4; }
+      50% { opacity: 1; }
+    }
+
+    body.loading main,
+    body.loading header,
+    body.loading footer {
+      visibility: hidden;
+    }
+
+    /* === TOAST XABAR === */
+    #toast {
+      position: fixed;
+      bottom: 30px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #333;
+      color: #fff;
+      padding: 10px 20px;
+      border-radius: 25px;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.5s ease;
+      z-index: 9999;
+      font-family: sans-serif;
+    }
+  </style>
 </head>
 
 <body class="loading">
+  <!-- === PRELOADER === -->
+  <div id="preloader">
+    <div class="cube">
+      <div class="front"></div>
+      <div class="back"></div>
+      <div class="right"></div>
+      <div class="left"></div>
+      <div class="top"></div>
+      <div class="bottom"></div>
+    </div>
+    <div class="loading-text">Yuklanmoqda...</div>
+  </div>
 
-    <div id="preloader"><div class="loader"></div></div>
+  <!-- === HEADER === -->
+  <header class="header">
+    <div class="container">
+      <h1><i class="fas fa-store"></i> Online Do'kon</h1>
+      <nav class="bottom-nav">
+        <a href="{{ url_for('index') }}" class="btn" title="Bosh sahifa">
+          <i class="fas fa-home"></i>
+        </a>
+        <a href="{{ url_for('cart') }}" class="btn cart-link" title="Savat">
+          <i class="fas fa-shopping-cart"></i>
+          <span class="cart-count">{% if session.cart %}{{ session.cart|length }}{% else %}0{% endif %}</span>
+        </a>
+        <a href="{{ url_for('chat_ui') }}" class="btn" title="Operator bilan aloqa">
+          <i class="fas fa-headset"></i>
+        </a>
+      </nav>
+    </div>
+  </header>
 
-    <header class="header">
-        <div class="container">
-            <h1><i class="fas fa-store"></i> Online Do'kon</h1>
-            <nav class="bottom-nav">
-                <a href="{{ url_for('index') }}" class="btn"><i class="fas fa-home"></i></a>
-                <a href="{{ url_for('cart') }}" class="btn cart-link">
-                    <i class="fas fa-shopping-cart"></i>
-                    <!-- <span class="cart-count">{% if session.cart %}{{ session.cart|length }}{% else %}0{% endif %}</span> -->
-                </a>
-                <a href="{{ url_for('chat_ui') }}" class="btn"><i class="fas fa-headset"></i></a>
-            </nav>
+  <!-- === MAIN CONTENT === -->
+  <main class="container">
+    <section id="catalog" class="products-section">
+      <h2><i class="fas fa-grid"></i> Barcha mahsulotlar</h2>
+
+      <div id="infinite-grid" class="products-grid"></div>
+      <div id="infinite-sentinel"></div>
+    </section>
+  </main>
+
+  <!-- === FOOTER === -->
+  <footer class="footer">
+    <div class="container">
+      <p>© 2025 Online Do'kon. Barcha huquqlar himoyalangan.</p>
+    </div>
+  </footer>
+
+  <div id="toast">Mahsulot savatga qo'shildi!</div>
+
+  <script>
+    // === PRELOADER (sahifa to‘liq yuklangach yo‘qoladi) ===
+    window.addEventListener("load", () => {
+      const preloader = document.getElementById("preloader");
+      document.body.classList.remove("loading");
+
+      // sekin o‘chirish
+      preloader.style.opacity = "0";
+      preloader.style.pointerEvents = "none";
+      setTimeout(() => preloader.style.display = "none", 700);
+    });
+
+    // === TOAST FUNKSIYASI ===
+    function showToast(msg) {
+      const toast = document.getElementById('toast');
+      toast.textContent = msg;
+      toast.style.opacity = 1;
+      setTimeout(() => toast.style.opacity = 0, 1500);
+    }
+
+    // === MAHSULOTLARNI YUKLASH ===
+    const DEFAULT_IMG_URL = "{{ url_for('static', filename='images/default-product.jpg') }}";
+    const gridEl = document.getElementById('infinite-grid');
+    const sentinel = document.getElementById('infinite-sentinel');
+    let offset = 0, limit = 24, loading = false, hasMore = true;
+
+    const priceFmt = (n) => new Intl.NumberFormat('uz-UZ').format(n);
+
+    function productCard(p) {
+      const firstImg = (p.images && p.images.length > 0) ? p.images[0] : DEFAULT_IMG_URL;
+      const div = document.createElement('div');
+      div.className = 'product-card';
+      div.innerHTML = `
+        <div class="image-wrapper">
+          <img src="${firstImg}" alt="${p.name}" class="product-img" loading="lazy">
         </div>
-    </header>
-
-    <main class="container">
-        <section id="catalog" class="products-section" style="margin-top:24px;">
-            <h2><i class="fas fa-grid"></i> Barcha mahsulotlar</h2>
-            <div id="infinite-grid" class="products-grid"></div>
-            <div id="infinite-sentinel" style="height: 1px;"></div>
-        </section>
-    </main>
-
-    <footer class="footer">
-        <div class="container">
-            <p>© 2025 Online Do'kon. Barcha huquqlar himoyalangan.</p>
+        <div class="product-info">
+          <h3 class="product-title">${p.name}</h3>
+          <p class="price">${priceFmt(p.price)} so'm</p>
+          <div class="product-actions">
+            <button class="btn add-cart"><i class="fas fa-cart-plus"></i> Savatga</button>
+          </div>
         </div>
-    </footer>
+      `;
 
-    <div id="toast">Mahsulot savatga qo'shildi!</div>
+      div.querySelector('.add-cart').addEventListener('click', (e) => {
+        e.stopPropagation();
+        e.preventDefault();
+        fetch(`/add-to-cart/${p.id}`, { method: 'POST' })
+          .then(() => showToast("Savatga qo‘shildi ✅"))
+          .catch(() => showToast("Xatolik yuz berdi ❌"));
+      });
 
-    <script>
-        // Preloader
-        window.addEventListener("load", () => {
-            const preloader = document.getElementById("preloader");
-            document.body.classList.remove("loading");
-            preloader.style.opacity = "0";
-            setTimeout(() => preloader.style.display = "none", 500);
-        });
+      div.addEventListener('click', () => {
+        window.location.href = `/product/${p.id}`;
+      });
 
-        // Cart countni olish
-        const cartCountEl = document.querySelector('.cart-count');
+      return div;
+    }
 
-        // Toast xabar funksiyasi
-        function showToast(msg) {
-            const toast = document.getElementById('toast');
-            toast.textContent = msg;
-            toast.style.opacity = 1;
-            setTimeout(() => { toast.style.opacity = 0; }, 1500);
-        }
+    async function loadMore() {
+      if (loading || !hasMore) return;
+      loading = true;
+      try {
+        const res = await fetch(`/api/products?offset=${offset}&limit=${limit}`);
+        const data = await res.json();
+        (data.items || []).forEach(p => gridEl.appendChild(productCard(p)));
+        offset += (data.items || []).length;
+        hasMore = !!data.has_more;
+        if (!hasMore) observer.disconnect();
+      } catch (e) {
+        console.error('Yuklash xatosi', e);
+      } finally {
+        loading = false;
+      }
+    }
 
-        const DEFAULT_IMG_URL = "{{ url_for('static', filename='images/default-product.jpg') }}";
-        const gridEl = document.getElementById('infinite-grid');
-        const sentinel = document.getElementById('infinite-sentinel');
-        let offset = 0, limit = 24, loading = false, hasMore = true;
+    const observer = new IntersectionObserver(entries => {
+      entries.forEach(entry => entry.isIntersecting && loadMore());
+    }, { rootMargin: '400px 0px' });
 
-        function priceFmt(n) { try { return new Intl.NumberFormat('uz-UZ').format(n); } catch (_) { return n; } }
-
-        function productCard(p) {
-            const firstImg = (p.images && p.images.length > 0) ? p.images[0] : DEFAULT_IMG_URL;
-
-            const div = document.createElement('div');
-            div.className = 'product-card';
-            div.innerHTML = `
-                <div class="image-wrapper">
-                    <img src="${firstImg}" alt="${p.name}" class="product-img" loading="lazy">
-                </div>
-                <div class="product-info">
-                    <h3 class="product-title">${p.name}</h3>
-                    <p class="price">${priceFmt(p.price)} so'm</p>
-                    <div class="product-actions">
-                        <button class="btn add-cart"><i class="fas fa-cart-plus"></i> Savatga</button>
-                    </div>
-                </div>
-            `;
-
-            // Tugma push xabar va fetch bilan
-            div.querySelector('.add-cart').addEventListener('click', (e) => {
-                e.stopPropagation();
-                e.preventDefault();
-                fetch(`/add-to-cart/${p.id}`, { method: 'POST' })
-                    .then(res => res.json())
-                    .then(data => {
-                        cartCountEl.textContent = data.total_items;
-                        showToast(`${p.name} savatga qo‘shildi!`);
-                    })
-                    .catch(err => console.error(err));
-            });
-
-            // Kartani o'ziga bosganda mahsulot sahifasiga o'tish
-            div.addEventListener('click', () => {
-                window.location.href = `/product/${p.id}`;
-            });
-
-            return div;
-        }
-
-        async function loadMore() {
-            if (loading || !hasMore) return;
-            loading = true;
-            try {
-                const res = await fetch(`/api/products?offset=${offset}&limit=${limit}`);
-                const data = await res.json();
-                (data.items || []).forEach(p => {
-                    const card = productCard(p);
-                    gridEl.appendChild(card);
-                });
-                offset += (data.items || []).length;
-                hasMore = !!data.has_more;
-                if (!hasMore) observer.disconnect();
-            } catch (e) {
-                console.error('Yuklash xatosi', e);
-            } finally { loading = false; }
-        }
-
-        const observer = new IntersectionObserver(entries => {
-            entries.forEach(entry => { if (entry.isIntersecting) loadMore(); });
-        }, { rootMargin: '400px 0px' });
-
-        if (sentinel) observer.observe(sentinel);
-        loadMore();
-    </script>
+    if (sentinel) observer.observe(sentinel);
+    loadMore();
+  </script>
 </body>
 </html>

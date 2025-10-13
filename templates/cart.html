@@ -9,83 +9,97 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
-        .product-image img {
-            display: block;
-            height: auto;
-            object-fit: contain;
-            width: 80px;
-            border-radius: 4px;
-            margin: 0;
+        /* ====== CART PAGE FIXES ====== */
+
+        .product-image {
+            flex: 0 0 100px;
+            /* rasm diagonalni ushlab turadi, tartib saqlanadi */
+            width: 100px;
         }
 
+        .product-image img {
+            display: block;
+            width: 100%;
+            height: auto;
+            object-fit: contain;
+            /* rasm kesilmasin */
+            border-radius: 6px;
+            margin: 0;
+            background: #fff;
+        }
+
+        /* Bo‘sh savat: elementlar normal oqimda bo‘lsin */
         .empty-cart {
             display: flex;
-            /* markazlashtirish uchun flex ishlatamiz */
+            flex-direction: column;
+            /* rasm ustida, matn pastda */
             justify-content: center;
-            /* gorizontal markaz */
             align-items: center;
-            /* vertikal markaz */
             height: 70vh;
-            /* ekran balandligining 70% */
             text-align: center;
+            gap: 12px;
+            position: relative;
+            /* agar ichida absolute element bo'lsa, unga ota konteyner bo'lsin */
         }
 
         .empty-cart img {
             width: 250px;
-            /* PNG kengligi */
             height: auto;
-            /* Proportsiyani saqlash */
-            opacity: 0.9;
-            /* ixtiyoriy: biroz yumshatish */
+            opacity: 0.95;
         }
 
+        /* Mahsulot qatori */
         .cart-item {
             display: flex;
-            gap: 10px;
-            padding: 10px;
+            gap: 12px;
+            padding: 12px;
             background: white;
             border-radius: 8px;
-            margin-bottom: 10px;
-            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
-            flex-direction: row;
+            margin-bottom: 12px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
             align-items: center;
-            text-align: center;
+            text-align: left;
         }
 
+        /* Ichki tafsilotlar */
         .product-details {
             flex-grow: 1;
-            margin-left: 5px;
+            margin-left: 8px;
         }
 
+        /* IKKI QATORLIK NOM (yaxshi UX uchun) */
         .product-name {
-            font-size: 14px;
+            font-size: 15px;
             font-weight: 600;
-            white-space: nowrap;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            /* maksimal 2 qator */
+            -webkit-box-orient: vertical;
             overflow: hidden;
             text-overflow: ellipsis;
-            max-width: 150px;
+            max-width: 100%;
         }
 
+        /* boshqa elementlar */
         .product-price {
-            font-size: 12px;
+            font-size: 13px;
             color: #444;
         }
 
         .quantity-control {
             display: flex;
             align-items: center;
-            gap: 5px;
-            margin-top: 5px;
+            gap: 6px;
+            margin-top: 6px;
         }
 
         .qty-btn {
             background: #4caf50;
-            color: white;
+            color: #fff;
             border: none;
             border-radius: 4px;
-            padding: 4px 8px;
+            padding: 5px 9px;
             cursor: pointer;
-            transition: background 0.3s;
         }
 
         .qty-btn:hover {
@@ -96,46 +110,48 @@
             display: flex;
             flex-direction: column;
             align-items: center;
-            gap: 5px;
+            gap: 6px;
         }
 
         .remove-btn {
             background: #e74c3c;
+            color: #fff;
             border: none;
-            color: white;
             padding: 6px 8px;
             border-radius: 4px;
             cursor: pointer;
-            transition: background 0.3s;
         }
 
         .remove-btn:hover {
             background: #c0392b;
         }
 
-        /* Asosiy tugmalar */
+        /* tugmalar */
         .btn {
             display: inline-block;
             margin: 8px 4px;
             padding: 10px 18px;
-            font-size: 15px;
-            font-weight: bold;
+            font-weight: 700;
             border-radius: 6px;
-            text-decoration: none;
-            text-align: center;
-            color: white;
+            color: #fff;
             background: #4caf50;
-            box-shadow: 0px 0px 5px 1px #000000;
-            transition: all 0.3s ease;
+            box-shadow: 0 0 5px rgba(0, 0, 0, 0.2);
+            text-decoration: none;
         }
 
         .btn:hover {
             background: #45a049;
             transform: translateY(-2px);
-            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
         }
 
-        /* Fiksatsiya savat xulosasi */
+        /* FIX: cart-summary pastdagi fixed bar qoplamasin deyish uchun padding */
+        .cart-items {
+            padding-bottom: 120px;
+        }
+
+        /* cart-summary balandligiga moslashtir. agar bar kattaroq bo'lsa 140px qil */
+
+        /* Fixed summary */
         .cart-summary {
             position: fixed;
             bottom: 0;
@@ -143,17 +159,82 @@
             width: 100%;
             background: #fff;
             border-top: 2px solid #eee;
-            box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.1);
+            box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.08);
             padding: 12px;
             text-align: center;
             z-index: 999;
         }
 
-        .summary-row {
-            font-size: 16px;
-            font-weight: bold;
-            margin-bottom: 10px;
+        /* RESPONSIVE */
+
+        /* katta planshetlar */
+        @media (max-width: 1024px) {
+            .product-image {
+                flex: 0 0 90px;
+                width: 90px;
+            }
+
+            .product-name {
+                font-size: 14px;
+            }
         }
+
+        /* o'rta mobil */
+        @media (max-width: 768px) {
+            .cart-item {
+                flex-wrap: nowrap;
+                /* tartibni saqlab qolamiz (rasm + tafsilot + action) */
+                align-items: center;
+            }
+
+            .product-image {
+                flex: 0 0 110px;
+                width: 110px;
+            }
+
+            .product-name {
+                font-size: 14px;
+                -webkit-line-clamp: 2;
+            }
+        }
+
+        /* kichik mobil: ustma-ust (vertical) tartib kerak bo'lsa */
+        /* Kichik mobil (S) */
+        @media (max-width: 480px) {
+    .cart-item {
+        flex-direction: row; /* ustma-ust emas, chapdan-o‘ngga */
+        align-items: center;
+        gap: 8px;
+    }
+
+    .product-image {
+        flex: 0 0 70px; /* rasm kichrayadi */
+        width: 70px;
+        height: 70px;
+    }
+
+    .product-image img {
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+    }
+
+    .product-details {
+        flex: 1 1 auto;
+        margin-left: 8px;
+    }
+
+    .product-name {
+        font-size: 14px;
+        -webkit-line-clamp: 2;
+    }
+
+    .product-actions {
+        flex-direction: column;
+        gap: 4px;
+    }
+}
+
     </style>
 </head>
 
@@ -247,9 +328,9 @@
     {% if not products %}
     <div class="empty-cart">
         <img src="{{ url_for('static', filename='images/empty-cart.png') }}" alt="Savat bo'sh">
-        <i style="margin-left: 20px; font-size: 18px; color: #555; position: absolute;">
-            Sizning savatingiz bo'sh! Mahsulot qo'shing.
-        </i>
+        <p style=".empty-text { color:#555; font-size:18px; margin-top: 6px; }" class="empty-text">
+            Savat bo'sh</p>
+
     </div>
     {% endif %}
 

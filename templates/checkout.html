@@ -151,6 +151,7 @@
       max-height: 90vh;
       overflow-y: auto;
       border-radius: 12px 12px 0 0;
+
     }
 
     .checkout-form-wrapper.active {
@@ -158,7 +159,7 @@
     }
 
     #map {
-      height: 250px;
+      /* height: 250px; */
       border-radius: 8px;
       margin-top: 10px;
     }
@@ -185,6 +186,48 @@
       }
     }
 
+    /* === LAPTOP/DESKTOP === */
+    @media (min-width: 1024px) {
+      .order-summary {
+        display: flex;
+        gap: 20px;
+        max-width: 1200px;
+        margin: 20px auto;
+      }
+
+      .order-items {
+        flex: 2;
+      }
+
+      .checkout-form-wrapper {
+        position: relative;
+        right: auto;
+        top: 0;
+        bottom: 0;
+        width: 400px;
+        max-height: none;
+        display: block !important;
+        border-radius: 12px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+        padding: 20px;
+        transition: none;
+      }
+
+      .checkout-bar {
+        display: none !important;
+      }
+
+      body.no-scroll {
+        overflow: auto !important;
+      }
+
+      /* faqat leafletjs.com linkini yashirish */
+      .leaflet-control-attribution a[href="https://leafletjs.com/"] {
+        display: none !important;
+      }
+
+
+    }
   </style>
 </head>
 
@@ -193,46 +236,38 @@
     <div class="container">
       <h1><i class="fas fa-store"></i> Online Do'kon</h1>
       <nav>
-        <a href="{{ url_for('cart') }}" title="Savat"><i class="fas fa-shopping-cart"></i></a>
-        <a href="{{ url_for('index') }}" title="Bosh sahifa"><i class="fas fa-home"></i></a>
+        <a href="{{ url_for('cart') }}" title="Savat"><i class="fas fa-shopping-cart btn"></i></a>
+        <a href="{{ url_for('index') }}" title="Bosh sahifa"><i class="fas fa-home btn"></i></a>
       </nav>
     </div>
   </header>
 
   <main class="order-summary">
-    <h2><i class="fas fa-receipt"></i> Buyurtma ma'lumotlari</h2>
     <div class="order-items">
+      <h2><i class="fas fa-receipt"></i> Buyurtma ma'lumotlari</h2>
       {% if cart_items %}
-        {% for item in cart_items %}
-          {% set first_img = item.image.split(',')[0].strip() if item.image else None %}
-          <div class="cart-item">
-            <img src="{{ url_for('static', filename='images/' + first_img) if first_img else url_for('static', filename='images/default-product.jpg') }}"
-                 alt="{{ item.name }}" class="cart-item-img">
-            <div>
-              <h3>{{ item.name }}</h3>
-              <p>{{ "{:,.0f}".format(item.price|int) }} so'm × {{ item.quantity }}</p>
-              <p><strong>Jami:</strong> {{ "{:,.0f}".format(item.total_price|int) }} so'm</p>
-            </div>
-          </div>
-        {% endfor %}
+      {% for item in cart_items %}
+      {% set first_img = item.image.split(',')[0].strip() if item.image else None %}
+      <div class="cart-item">
+        <img
+          src="{{ url_for('static', filename='images/' + first_img) if first_img else url_for('static', filename='images/default-product.jpg') }}"
+          alt="{{ item.name }}" class="cart-item-img">
+        <div>
+          <h3>{{ item.name }}</h3>
+          <p>{{ "{:,.0f}".format(item.price|int) }} so'm × {{ item.quantity }}</p>
+          <p><strong>Jami:</strong> {{ "{:,.0f}".format(item.total_price|int) }} so'm</p>
+        </div>
+      </div>
+      {% endfor %}
       {% else %}
-        <div class="empty-msg">Savat bo'sh</div>
+      <div class="empty-msg">Savat bo'sh</div>
       {% endif %}
+      <div class="order-total">
+        Jami: {{ "{:,.0f}".format(total|int) if total else "0" }} so'm
+      </div>
     </div>
-    <div class="order-total">
-      Jami: {{ "{:,.0f}".format(total|int) if total else "0" }} so'm
-    </div>
-  </main>
 
-  {% if cart_items and cart_items|length > 0 %}
-    <button class="checkout-bar" onclick="toggleForm()">
-      <i class="fas fa-credit-card"></i> Buyurtma berish
-      <span class="amount">{{ "{:,.0f}".format(total) }} so'm</span>
-    </button>
-  {% endif %}
-
-  <div class="checkout-form-wrapper" id="checkoutForm" aria-hidden="true">
-    <div class="checkout-form container">
+    <div class="checkout-form-wrapper" id="checkoutForm" aria-hidden="true">
       <h2><i class="fas fa-user"></i> Yetkazib berish ma'lumotlari</h2>
       <form method="POST" action="{{ url_for('checkout') }}">
         <input type="text" name="name" class="form-control" placeholder="Ismingiz" required>
@@ -242,29 +277,51 @@
           📍 Lokatsiyani aniqlash
           <span id="spinner" class="spinner" style="display:none;"></span>
         </button>
+
         <p id="locationStatus" style="margin-top:6px;font-size:0.9rem;color:green;"></p>
         <input type="hidden" id="location" name="location">
-        <div id="map"></div>
+        <div id="map" style="
+            height: 250px; 
+            border-radius: 8px; 
+            margin-top: 10px; 
+            background: url('{{ url_for('static', filename='images/map-placeholder.gif') }}') center center no-repeat;
+            background-size: 50px 50px;
+        "></div>
         <div class="form-actions">
-          <button type="button" class="btn btn-cancel" onclick="closeForm()"><i class="fas fa-times"></i> Bekor qilish</button>
+          <button type="button" class="btn btn-cancel" onclick="closeForm()"><i class="fas fa-times"></i> Bekor
+            qilish</button>
           <button type="submit" class="btn btn-submit"><i class="fas fa-check"></i> Buyurtma berish</button>
         </div>
       </form>
     </div>
-  </div>
+  </main>
+
+  {% if cart_items and cart_items|length > 0 %}
+  <button class="checkout-bar" onclick="toggleForm()">
+    <i class="fas fa-credit-card"></i> Buyurtma berish
+    <span class="amount">{{ "{:,.0f}".format(total) }} so'm</span>
+  </button>
+  {% endif %}
 
   <footer class="footer" style="text-align:center;padding:12px 0;color:#555;font-size:0.9rem;">
     © 2025 Online Do'kon
   </footer>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <script>
-    let map, marker;
+  <script>let map;      // global
+    let marker;
 
     function initMap() {
       if (!map) {
-        map = L.map('map').setView([41.3, 69.2], 7);
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+        map = L.map('map', {
+          attributionControl: false  // Leaflet matnini olib tashlash
+        }).setView([41.3, 69.2], 7);
+
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          attribution: '&copy; <a href="https://www.openstreetmap.org/">OpenStreetMap</a> contributors'
+        }).addTo(map);
+      } else {
+        map.invalidateSize(); // container o'lchami o'zgarganda to'g'ri ko'rsatish
       }
     }
 
@@ -274,8 +331,9 @@
       el.classList.toggle('active');
       el.setAttribute('aria-hidden', String(!hidden));
       document.body.classList.toggle('no-scroll', hidden);
+
       if (hidden) {
-        setTimeout(() => { initMap(); map.invalidateSize(); }, 350);
+        setTimeout(() => { initMap(); }, 350); // mapni faqat kerak bo'lganda yangilash
       }
     }
 
@@ -307,10 +365,11 @@
         spinner.style.display = 'none';
         const { latitude, longitude } = pos.coords;
         document.getElementById('location').value = `${latitude},${longitude}`;
-        initMap();
-        map.setView([latitude, longitude], 15); 
-        if (marker) { marker.setLatLng([latitude, longitude]); }
-        else {
+        initMap(); // map allaqachon mavjud bo‘lsa invalidateSize chaqiriladi
+        map.setView([latitude, longitude], 15);
+        if (marker) {
+          marker.setLatLng([latitude, longitude]);
+        } else {
           marker = L.marker([latitude, longitude]).addTo(map)
             .bindPopup('📍 Sizning joylashuvingiz').openPopup();
         }
@@ -321,6 +380,8 @@
         statusEl.textContent = '❌ Lokatsiyani aniqlab bo\'lmadi';
       });
     }
+
   </script>
 </body>
+
 </html>
